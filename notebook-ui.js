@@ -8,7 +8,7 @@
   const fullDate = day => new Date(`${day}T12:00:00`).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
   const time = item => new Date(item.created).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 
-  function AutoText({ value, onChange, label, placeholder, className = "", autoFocus = false }) {
+  function AutoText({ value, onChange, label, placeholder, className = "", autoFocus = false, disabled = false }) {
     const ref = useRef(null);
     useLayoutEffect(() => {
       const node = ref.current;
@@ -21,7 +21,7 @@
       return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", resize); };
     }, [value]);
     return h("textarea", { ref, value, onChange: event => onChange(event.target.value), "aria-label": label,
-      placeholder, maxLength: 50000, rows: 1, className, autoFocus });
+      placeholder, maxLength: 50000, rows: 1, className, autoFocus, disabled });
   }
 
   function Modal({ titleId, className, onClose, children }) {
@@ -100,6 +100,29 @@
           } }, changed ? "保存修改 ✓" : "已保存 ✓"))));
   }
 
+  function ArchiveEntry({ item, day, editable, busy, save }) {
+    const [editing, setEditing] = useState(false);
+    const [body, setBody] = useState(item.body);
+    async function submit(event) {
+      event.preventDefault();
+      if (busy || !body.trim() || body === item.body) return;
+      if (await save("PATCH", { id: item.id, body })) setEditing(false);
+    }
+    return h("article", { className: "archive-entry" },
+      h("div", { className: "heading" }, h("time", { dateTime: item.created }, time(item)),
+        !editing && h("div", { className: "archive-entry-actions" },
+          editable && h("button", { type: "button", disabled: busy,
+            onClick: () => { setBody(item.body); setEditing(true); } }, "编辑"),
+          h("button", { type: "button", disabled: busy, "aria-label": `删除 ${day} ${time(item)} 的记录`,
+            onClick: () => save("DELETE", { id: item.id }) }, "删除"))),
+      editing ? h("form", { className: "archive-edit-form", onSubmit: submit },
+        h(AutoText, { label: `编辑 ${day} ${time(item)} 的日志`, value: body, onChange: setBody, autoFocus: true, disabled: busy }),
+        h("div", { className: "archive-edit-actions" },
+          h("button", { type: "button", disabled: busy, onClick: () => { setBody(item.body); setEditing(false); } }, "取消"),
+          h("button", { type: "submit", className: "archive-save", disabled: busy || !body.trim() || body === item.body }, busy ? "正在保存…" : "保存修改")))
+        : h("p", null, item.body));
+  }
+
   function Archive({ kind, items, busy, error, save, onClose }) {
     const groups = archiveGroups(items, kind);
     const [activeDay, setActiveDay] = useState(groups[0]?.day || "");
@@ -125,10 +148,7 @@
           h("p", null, kind === "log" ? "流水账提交后，会按日期收进这里。" : "写下的小纸条，会按日期收进这里。")),
         groups.map(group => h("section", { key: group.day, className: "archive-day", ref: node => { if (node) sections.current.set(group.day, node); else sections.current.delete(group.day); } },
           h("div", { className: "archive-day-title" }, h("h3", null, fullDate(group.day)), h("span", null, `${group.entries.length} 条`)),
-          group.entries.map(item => h("article", { className: "archive-entry", key: item.id },
-            h("div", { className: "heading" }, h("time", { dateTime: item.created }, time(item)),
-              h("button", { type: "button", disabled: busy, "aria-label": `删除 ${group.day} ${time(item)} 的记录`, onClick: () => save("DELETE", { id: item.id }) }, "删除")),
-            h("p", null, item.body)))))));
+          group.entries.map(item => h(ArchiveEntry, { key: item.id, item, day: group.day, editable: kind === "log", busy, save }))))));
   }
 
   function Notebook() {

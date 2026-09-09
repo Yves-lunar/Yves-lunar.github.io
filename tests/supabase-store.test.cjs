@@ -160,6 +160,15 @@ test('daily logs round-trip through the existing schema without mixing with old 
   assert.equal(loaded.find(row=>row.id===diary.id).kind, 'diary');
   assert.equal(loaded.find(row=>row.id===log.id).kind, 'log');
   assert.equal(loaded.find(row=>row.id===log.id).body, '今天做了三件事');
+  await b.store.mutate('PATCH', {id:log.id,body:'补充：晚上读了书'});
+  const updated = (await a.store.list()).find(row=>row.id===log.id);
+  assert.equal(updated.body, '补充：晚上读了书');
+  assert.equal(updated.kind, 'log');
+  assert.equal(updated.day, log.day);
+  assert.equal(updated.created, log.created);
+  assert.equal(remote.get(log.id).title, '__little_days_daily_log_v1__');
+  assert.equal(remote.size, 2, 'Editing must update the existing log rather than create a copy');
+  assert.equal((await a.store.list()).find(row=>row.id===diary.id).body, diary.body);
   await b.store.mutate('DELETE', {id:log.id});
   assert.equal((await a.store.list()).length, 1);
   assert.equal((await a.store.list())[0].kind, 'diary');

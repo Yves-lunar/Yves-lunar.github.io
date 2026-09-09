@@ -106,6 +106,12 @@ footer { margin-top: 30px; }
 .archive-entry time { font-size: 11px; color: #a2ab97; }
 .archive-entry button { border: 0; background: transparent; color: #a8ad9f; font-size: 11px; padding: 3px 0 3px 12px; }
 .archive-entry p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 2; margin: 12px 0 0; }
+.archive-entry-actions, .archive-edit-actions { display: flex; align-items: center; gap: 12px; }
+.archive-edit-form textarea { display: block; box-sizing: border-box; width: 100%; min-height: 110px; margin-top: 14px; padding: 12px; border: 1px solid #cbd7bf; border-radius: 8px; background: #fff; color: inherit; font: inherit; font-size: 15px; line-height: 2; resize: none; overflow: hidden; }
+.archive-edit-actions { justify-content: flex-end; margin-top: 12px; }
+.archive-edit-actions button { padding: 8px 14px; font-size: 12px; border-radius: 7px; }
+.archive-edit-actions .archive-save { background: #dfe7d7; color: #526846; }
+.archive-entry button:disabled { opacity: .5; cursor: default; }
 .archive-dialog > .error { margin: 12px 28px 0; flex: none; }
 .archive-empty { text-align: center; padding: 12vh 0; color: #a3ac99; }
 .archive-empty > span { font-size: 36px; }
