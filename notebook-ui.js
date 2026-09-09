@@ -75,8 +75,16 @@
   function Project({ item, index, busy, save }) {
     const [title, setTitle] = useState(item.title);
     const [body, setBody] = useState(item.body);
+    const [expanded, setExpanded] = useState(false);
     const changed = title !== item.title || body !== item.body;
-    return h("article", { className: `note color-${index % 3}` },
+    const detailsId = `project-details-${item.id}`;
+    return h("article", { className: `note project-card color-${index % 3} ${expanded ? "is-expanded" : ""}` },
+      h("button", { type: "button", className: "project-toggle", "aria-expanded": expanded, "aria-controls": detailsId,
+        onClick: () => setExpanded(!expanded) },
+        h("span", { className: "project-summary-title" }, title || item.title),
+        changed && h("span", { className: "project-unsaved", "aria-label": "有未保存的修改" }, "·"),
+        h("span", { className: `date-chevron ${expanded ? "open" : ""}`, "aria-hidden": true }, "⌄")),
+      expanded && h("div", { id: detailsId, className: "project-details" },
       h("div", { className: "heading" }, h("small", null, `PROJECT ${String(index + 1).padStart(2, "0")}`),
         h("button", { type: "button", className: "delete", "aria-label": `删除项目 ${item.title}`, disabled: busy,
           onClick: () => save("DELETE", { id: item.id }) }, "×")),
@@ -84,7 +92,12 @@
       h(AutoText, { label: "项目进展", value: body, onChange: setBody, placeholder: "写下目前的进展、想法和下一步…" }),
       h("div", { className: "heading note-bottom" }, h("span", null, changed ? "有未保存的修改" : "随时编辑，慢慢推进"),
         h("button", { type: "button", disabled: busy || !changed || !title.trim(),
-          onClick: () => save("PATCH", { id: item.id, title: title.trim(), body }) }, changed ? "保存修改 ✓" : "已保存 ✓")));
+          onClick: async () => {
+            if (await save("PATCH", { id: item.id, title: title.trim(), body })) {
+              setTitle(current => current === title ? title.trim() : current);
+              setExpanded(false);
+            }
+          } }, changed ? "保存修改 ✓" : "已保存 ✓"))));
   }
 
   function Archive({ kind, items, busy, error, save, onClose }) {
@@ -132,6 +145,7 @@
     const [logStatus, setLogStatus] = useState("");
     const [fullscreen, setFullscreen] = useState(false);
     const [archive, setArchive] = useState(null);
+    const [showAllProjects, setShowAllProjects] = useState(false);
     useEffect(() => {
       let active = true;
       store.list().then(data => { if (active) { setItems(data); setReady(true); } })
@@ -211,7 +225,13 @@
             h("div", { className: "heading project-heading" }, h("h2", { id: "projects-title" }, "正在进行"),
               h("button", { type: "button", className: "soft", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "新的项目", body: "" }) }, "＋ 新项目")),
             h("p", { className: "subtitle" }, "想法有落点，进展有记录。"),
-            projects.map((item, index) => h(Project, { key: item.id, item, index, busy, save })),
+            h("div", { id: "project-list", className: "project-list" },
+              projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !showAllProjects && index >= 3 },
+                h(Project, { item, index, busy, save })))),
+            projects.length > 3 && h("button", { type: "button", className: `project-overflow ${showAllProjects ? "showing-all" : ""}`,
+              "aria-expanded": showAllProjects, "aria-controls": "project-list", onClick: () => setShowAllProjects(!showAllProjects) },
+              h("span", null, showAllProjects ? "收起其余项目" : `还有 ${projects.length - 3} 个项目，点击展开`),
+              h("span", { className: `date-chevron ${showAllProjects ? "open" : ""}`, "aria-hidden": true }, "⌄")),
             !projects.length && h("div", { className: "note-empty" }, h("span", null, "↗"), h("h3", null, "让想法从这里开始"), h("p", null, "添加一个项目，随时写下新的进展。"),
               h("button", { type: "button", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "我的第一个项目", body: "" }) }, "创建项目 ＋")),
             h("p", { className: "footnote" }, "✧ 每一点进展，都算数。")),

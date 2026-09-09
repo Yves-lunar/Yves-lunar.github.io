@@ -15,6 +15,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .projects-panel .note-empty { min-height: 245px; padding: 28px 12px; }
 .projects-panel .note-empty h3 { font-size: 19px; }
 .projects-panel .footnote { margin-top: 24px; }
+.projects-panel .project-card { padding: 0; margin-bottom: 0; overflow: hidden; }
+.project-list-item { margin-bottom: 12px; }
+.project-list-item[hidden] { display: none; }
+.project-toggle { display: flex; align-items: center; gap: 9px; width: 100%; padding: 17px 18px; border: 0; background: transparent; color: #74694f; text-align: left; }
+.project-summary-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 550; }
+.project-toggle .date-chevron { flex: none; color: #a59a7e; }
+.project-unsaved { color: #b1905c; font-size: 21px; line-height: 1; }
+.project-details { padding: 0 18px 18px; }
+.project-details > .heading:first-child { border-top: 1px solid #8c79551c; padding-top: 14px; }
+.project-overflow { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 18px 8px 8px;
+  color: #a09478; border: 0; background: transparent; font-size: 12px; }
+.project-overflow:not(.showing-all)::before { content: ""; pointer-events: none; position: absolute; left: 0; right: 0; top: -31px; height: 36px;
+  background: linear-gradient(to bottom, #fbf8f000, #fbf8f0); }
+.project-overflow:hover { color: #74694f; }
 .task input.task-check { appearance: none; -webkit-appearance: none; flex: 0 0 19px; width: 19px; height: 19px;
   min-width: 19px; max-width: 19px; min-height: 19px; padding: 0; margin: 0; border: 1.5px solid #a4b596;
   border-radius: 4px; background: #f8faf4; cursor: pointer; display: grid; place-content: center; }
