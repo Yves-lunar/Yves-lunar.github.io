@@ -3,6 +3,9 @@
   "use strict";
 
   const columns = "id,kind,title,body,day,done,created";
+  // The deployed schema already accepts diary rows. An otherwise unused diary
+  // title stores this subtype, so existing installations need no SQL migration.
+  const logTitle = "__little_days_daily_log_v1__";
 
   function settings() {
     const config = window.LITTLE_DAYS_SUPABASE;
@@ -51,8 +54,9 @@
   }
 
   function toItem(row) {
+    const isLog = row.kind === "diary" && row.title === logTitle;
     return {
-      id: row.id, kind: row.kind, title: row.title || "", body: row.body || "",
+      id: row.id, kind: isLog ? "log" : row.kind, title: isLog ? "" : row.title || "", body: row.body || "",
       day: row.day || "", done: row.done ? 1 : 0, created: row.created
     };
   }
@@ -94,9 +98,11 @@
 
   async function mutate(method, input) {
     if (method === "POST") {
-      if (!["todo", "note", "diary"].includes(input.kind)) throw { code: "INVALID_INPUT" };
+      if (!["todo", "note", "diary", "log"].includes(input.kind)) throw { code: "INVALID_INPUT" };
       // IDs and creation timestamps come from PostgreSQL defaults.
-      const rows = await request("POST", { select: columns }, { ...fields(input), kind: input.kind });
+      const data = { ...fields(input), kind: input.kind === "log" ? "diary" : input.kind };
+      if (input.kind === "log") data.title = logTitle;
+      const rows = await request("POST", { select: columns }, data);
       if (rows.length !== 1 || !rows[0].id) throw { code: "INVALID_RESPONSE" };
       return toItem(rows[0]);
     }

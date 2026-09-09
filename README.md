@@ -2,6 +2,17 @@
 
 保留原有界面。待办、项目和日记保存到同一张 PostgreSQL 表，所有访客无需注册或手动登录即可共享读写。打开或刷新页面读取最新内容，无需部署自己的服务器。
 
+## 新版界面
+
+- 待办使用固定 19×19 像素的方框，三个模块在桌面上顶部对齐。
+- 上方浅铅灰色「流水账」支持随输入自动增高和全屏沉浸式书写；退出全屏保留草稿，提交后只存入「日志箱」。
+- 日历默认折叠为日期按钮，点击小箭头展开，选定日期后收起。
+- 第三栏仅预览最近提交的 4 条小纸条；所有小纸条（包括原有日记）均保留在底部「小纸条」中。
+- 「日志箱」与「小纸条」按记录日期倒序分组，顶部横排日期可点击跳转，同日记录按提交时间倒序排列。
+- 两个归档页和全屏书写均可用关闭按钮或 Esc 返回，保存失败时不清空草稿。
+
+已有 Supabase 表无需修改或重新执行 SQL。存储模块将流水账作为带保留标题 `__little_days_daily_log_v1__` 的 diary 行保存，读回时映射为 log；普通日记保持原样。不要手动改动该保留标题。
+
 ## 当前状态
 
 - Supabase Project URL 和前端 Publishable Key 已填入 `config.js`。
@@ -28,6 +39,9 @@
 - `config.js`
 - `supabase-store.js`
 - `app.js`
+- `notebook-ui.js`
+- `notebook-model.js`
+- `notebook.css`
 - `style.css`
 - `favicon.svg`
 
@@ -60,7 +74,11 @@
 
 ## 本地检查
 
-运行 `node --test tests/supabase-store.test.cjs`。8 项模拟测试覆盖共享读写、分页和失败处理；真实云端读写验证结果见上方「当前状态」。
+运行 `node --test tests/supabase-store.test.cjs tests/notebook-model.test.cjs`。12 项测试覆盖共享读写、分页、流水账兼容保存、归档分组与最近 4 条筛选。
+
+运行 `node tests/serve-preview.cjs` 后打开 `http://127.0.0.1:8080`，可使用纯模拟数据预览界面；不访问真实数据库。预览中正文含 `[模拟失败]` 可测试保存失败时保留草稿。部署时不需要上传 `tests` 文件夹。
+
+`app.js` 保留原打包依赖并提供 React 运行时；可维护的界面代码位于 `notebook-ui.js`，日期分组逻辑在 `notebook-model.js`，新增样式在 `notebook.css`。
 
 ## 官方参考
 

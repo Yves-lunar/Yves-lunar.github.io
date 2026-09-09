@@ -1,0 +1,136 @@
+/* Additions to the original warm, muted notebook palette. */
+.nav { display: flex; align-items: center; gap: 3px; }
+.nav button { border: 0; background: transparent; color: #858c7b; white-space: nowrap; }
+.nav button[aria-pressed="true"] { background: #fff; color: #647459; box-shadow: 0 1px 4px #47513b0c; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #8a9b7d; outline-offset: 4px; }
+.workspace > section { min-width: 0; margin-top: 0; }
+.projects-panel { padding: 25px; background: #fbf8f0; border: 1px solid #eae4d5; }
+.project-heading { position: relative; align-items: baseline; }
+.project-heading .soft { padding: 5px 8px; font-size: 12px; }
+.projects-panel .note { padding: 18px; }
+.projects-panel .note:last-of-type { margin-bottom: 0; }
+.projects-panel .note-title { font-size: 20px; }
+.projects-panel .note-empty { min-height: 245px; padding: 28px 12px; }
+.projects-panel .note-empty h3 { font-size: 19px; }
+.projects-panel .footnote { margin-top: 24px; }
+.task input.task-check { appearance: none; -webkit-appearance: none; flex: 0 0 19px; width: 19px; height: 19px;
+  min-width: 19px; max-width: 19px; min-height: 19px; padding: 0; margin: 0; border: 1.5px solid #a4b596;
+  border-radius: 4px; background: #f8faf4; cursor: pointer; display: grid; place-content: center; }
+.task input.task-check:checked { background: #829774; border-color: #829774; }
+.task input.task-check:checked::after { content: ""; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.task input.task-check:disabled { opacity: .55; cursor: default; }
+.daily-log { background: #edeeec; border: 1px solid #dfe2df; border-radius: 17px; padding: 19px 25px 15px; margin-bottom: 28px; }
+.log-heading, .log-title-line, .log-form-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.log-title-line { justify-content: flex-start; gap: 17px; }
+.log-title-line h2 { margin: 0; font-size: 18px; font-weight: 550; color: #656d68; }
+.log-title-line span { color: #929a93; font-size: 11px; letter-spacing: 1px; }
+.expand-writer { color: #7e8881; font-size: 12px; border: 0; background: transparent; padding: 5px 0 5px 10px; }
+.daily-log textarea { display: block; width: 100%; min-height: 45px; resize: none; overflow: hidden; border: 0; background: transparent;
+  margin-top: 12px; padding: 8px 0; color: #626c65; font-size: 15px; line-height: 1.85; }
+.daily-log textarea::placeholder { color: #a0a7a1; }
+.log-form-bottom { margin-top: 8px; }
+.log-feedback { color: #949c96; font-size: 11px; }
+.log-form-bottom button { border: 0; border-radius: 7px; background: #dce1db; color: #64745f; padding: 8px 13px; font-size: 12px; white-space: nowrap; }
+.log-form-bottom button:hover:enabled { background: #d0d8cf; }
+.date-picker { border-bottom: 1px solid #dfd8e8; padding-bottom: 14px; }
+.date-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; color: #7c688b;
+  border: 0; border-radius: 8px; background: #e8e1ee; padding: 11px 12px; font-size: 13px; text-align: left; }
+.date-chevron { font-size: 18px; line-height: 1; transition: transform .15s; }
+.date-chevron.open { transform: rotate(180deg); }
+.date-picker .calendar { border: 0; margin-top: 16px; padding-bottom: 0; }
+.date-picker .grid { margin-top: 10px; }
+.journal .subtitle { color: #a195ac; }
+.view-all-papers { color: #9b89a7; font-size: 11px; background: transparent; border: 0; padding: 5px 0; }
+.journal .entry p { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.archive-launchers { display: flex; justify-content: space-between; align-items: center; gap: 28px; padding-top: 35px; margin-top: 36px; border-top: 1px solid #e4e6dc; }
+.archive-caption > span { display: block; color: #7e8678; font-size: 15px; letter-spacing: 1px; margin-bottom: 7px; }
+.archive-caption small { font-size: 9px; letter-spacing: 1.5px; color: #a4aa9d; }
+.archive-buttons { display: flex; gap: 16px; }
+.archive-launch { display: flex; align-items: center; gap: 15px; width: 215px; border-radius: 13px; border: 1px solid #dfe2dc; background: #eeefeb; padding: 17px 20px; text-align: left; color: #737d70; }
+.archive-launch:hover { filter: brightness(.98); }
+.archive-icon { font-size: 26px; color: #929d8e; }
+.archive-launch strong { font-size: 16px; font-weight: 500; display: block; }
+.archive-launch small { display: block; margin-top: 4px; font-size: 10px; letter-spacing: .5px; }
+.archive-launch > span:last-child { margin-left: auto; font-size: 20px; opacity: .6; }
+.paper-launch { color: #8b7794; background: #f0ebf3; border-color: #e5ddeb; }
+.paper-launch .archive-icon, .paper-launch small { color: #a293ad; }
+footer { margin-top: 30px; }
+.writer-dialog, .archive-dialog { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; max-width: none; max-height: none;
+  margin: 0; padding: 0; border: 0; color: #626c61; background: #f5f5f0; overflow: hidden; }
+.writer-dialog::backdrop, .archive-dialog::backdrop { background: #fafbf7; }
+.writer-dialog[open], .archive-dialog[open] { display: flex; flex-direction: column; }
+.writer-top, .archive-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.writer-top { padding: 24px max(30px, calc((100vw - 1120px) / 2)); border-bottom: 1px solid #e0e3dc; }
+.writer-top h2, .archive-heading h2 { margin-top: 7px; font-size: 26px; font-weight: 500; }
+.writer-top small { font-size: 9px; color: #a1a89c; }
+.close-button { background: transparent; border: 1px solid #d9dfd2; color: #8a9681; border-radius: 8px; padding: 9px 15px; font-size: 12px; white-space: nowrap; }
+.writer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 32px max(30px, calc((100vw - 860px) / 2)) 35px; }
+.writer-date { color: #a0a79c; letter-spacing: 1px; font-size: 12px; margin: 0 0 26px; }
+.immersive-form textarea { display: block; width: 100%; border: 0; padding: 0; background: transparent; color: #5e695e; font-size: 19px; line-height: 2.1;
+  min-height: calc(100dvh - 290px); resize: none; overflow: hidden; }
+.immersive-form textarea:focus-visible { outline: none; }
+.immersive-form textarea:focus { box-shadow: none; }
+.immersive-form textarea::placeholder { color: #a7ada3; }
+.immersive-form .log-form-bottom { padding-top: 24px; border-top: 1px solid #e1e5dc; margin-top: 30px; }
+.archive-top { flex: none; padding: 28px max(28px, calc((100vw - 1080px) / 2)) 0; background: #f3f4ee; border-bottom: 1px solid #dde2d7; }
+.archive-heading p { color: #a1a898; font-size: 12px; margin: 8px 0 20px; }
+.archive-heading small { font-size: 10px; }
+.archive-dates { display: flex; gap: 9px; overflow-x: auto; padding: 3px 3px 18px; scrollbar-width: thin; }
+.archive-dates button { flex: 0 0 auto; background: transparent; border: 1px solid #dfe4d8; border-radius: 10px; color: #8c9780; padding: 9px 17px; text-align: left; }
+.archive-dates span { display: block; font-size: 9px; opacity: .8; letter-spacing: 1px; }
+.archive-dates strong { display: block; font-size: 13px; font-weight: 500; margin-top: 3px; }
+.archive-dates button[aria-pressed="true"] { background: #dfe7d7; border-color: #cbd7bf; color: #637854; }
+.archive-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 30px max(28px, calc((100vw - 920px) / 2)) 90px; }
+.archive-day { scroll-margin-top: 18px; margin-bottom: 38px; }
+.archive-day:last-child { min-height: calc(100dvh - 300px); }
+.archive-day-title { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e0e5d9; padding-bottom: 12px; margin-bottom: 18px; }
+.archive-day-title h3 { font-size: 15px; font-weight: 500; }
+.archive-day-title span { color: #a0a996; font-size: 11px; }
+.archive-entry { background: #fcfcf8; border: 1px solid #e5e8df; border-radius: 12px; padding: 20px 24px; margin-bottom: 14px; }
+.archive-entry time { font-size: 11px; color: #a2ab97; }
+.archive-entry button { border: 0; background: transparent; color: #a8ad9f; font-size: 11px; padding: 3px 0 3px 12px; }
+.archive-entry p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 2; margin: 12px 0 0; }
+.archive-dialog > .error { margin: 12px 28px 0; flex: none; }
+.archive-empty { text-align: center; padding: 12vh 0; color: #a3ac99; }
+.archive-empty > span { font-size: 36px; }
+.archive-empty h3 { font-size: 20px; font-weight: 400; margin: 17px 0 10px; }
+.archive-empty p { font-size: 13px; }
+.paper-archive, .paper-archive .archive-top { background: #f6f2f7; color: #7d6c88; }
+.paper-archive .archive-top { border-color: #e5dce9; }
+.paper-archive .archive-dates button[aria-pressed="true"] { background: #e6dcec; color: #826591; border-color: #d6c6df; }
+.paper-archive .archive-entry { background: #fefcfe; border-color: #e9e1ec; }
+@media (max-width: 1100px) {
+  .archive-launch { width: 185px; padding: 16px; }
+  .archive-caption { max-width: 220px; }
+}
+@media (max-width: 640px) {
+  .nav button { flex: 1; }
+  .daily-log { padding: 16px 18px 13px; margin-bottom: 24px; }
+  .log-title-line { gap: 10px; }
+  .log-title-line span { font-size: 9px; letter-spacing: 0; }
+  .log-feedback { font-size: 10px; }
+  .log-form-bottom { gap: 7px; }
+  .log-form-bottom button { padding: 8px 10px; font-size: 11px; }
+  .projects-panel { padding: 23px; }
+  .archive-launchers { flex-direction: column; align-items: stretch; padding-top: 26px; gap: 19px; }
+  .archive-caption { max-width: none; text-align: center; }
+  .archive-buttons { gap: 10px; }
+  .archive-launch { flex: 1; min-width: 0; width: auto; padding: 14px 12px; gap: 8px; }
+  .archive-launch strong { font-size: 15px; }
+  .archive-launch small { font-size: 9px; }
+  .archive-icon { font-size: 23px; }
+  .writer-top { padding: 19px 20px; }
+  .writer-top small { font-size: 8px; letter-spacing: 1px; }
+  .writer-top h2 { font-size: 23px; }
+  .writer-body { padding: 24px 23px; }
+  .immersive-form textarea { font-size: 17px; }
+  .archive-top { padding: 23px 20px 0; }
+  .archive-scroll { padding: 24px 20px 65px; }
+  .archive-entry { padding: 16px 18px; }
+  .archive-heading h2 { font-size: 24px; }
+  .archive-dates button { padding: 8px 14px; }
+  .archive-empty h3 { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) { .date-chevron { transition: none; } }

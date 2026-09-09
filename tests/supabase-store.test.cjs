@@ -135,12 +135,32 @@ test('non-JSON responses do not become empty notebooks', async () => {
   await assert.rejects(a.store.list(), error => error.code === 'INVALID_RESPONSE');
 });
 
-test('page loads PostgreSQL storage before UI without document SDK', () => {
+test('page loads storage, runtime and model before UI without document SDK', () => {
   const html = fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert.ok(html.indexOf('./config.js') < html.indexOf('./supabase-store.js'));
   assert.ok(html.indexOf('./supabase-store.js') < html.indexOf('./app.js'));
+  assert.ok(html.indexOf('./app.js') < html.indexOf('./notebook-ui.js'));
+  assert.ok(html.indexOf('./notebook-model.js') < html.indexOf('./notebook-ui.js'));
   assert.ok(!html.includes('cloudbase.full.js'));
-  const bundle = fs.readFileSync(path.join(root,'app.js'),'utf8');
-  assert.ok(bundle.includes('window.LITTLE_DAYS_STORE.mutate(e,n)'));
-  assert.ok(bundle.includes('window.LITTLE_DAYS_STORE.list()'));
+  const ui = fs.readFileSync(path.join(root,'notebook-ui.js'),'utf8');
+  assert.ok(ui.includes('store.mutate(method, input)'));
+  assert.ok(ui.includes('store.list()'));
+});
+
+test('daily logs round-trip through the existing schema without mixing with old diaries', async () => {
+  const remote = new Map();
+  const a = visitor(remote), b = visitor(remote);
+  const diary = await a.store.mutate('POST', {kind:'diary',day:'2026-09-09',body:'原来的小纸条'});
+  const log = await a.store.mutate('POST', {kind:'log',day:'2026-09-09',body:'今天做了三件事'});
+  assert.equal(remote.get(log.id).kind, 'diary', 'Must satisfy the deployed kind CHECK constraint');
+  assert.equal(remote.get(log.id).title, '__little_days_daily_log_v1__');
+  assert.equal(log.kind, 'log');
+  assert.equal(log.title, '');
+  const loaded = await b.store.list();
+  assert.equal(loaded.find(row=>row.id===diary.id).kind, 'diary');
+  assert.equal(loaded.find(row=>row.id===log.id).kind, 'log');
+  assert.equal(loaded.find(row=>row.id===log.id).body, '今天做了三件事');
+  await b.store.mutate('DELETE', {id:log.id});
+  assert.equal((await a.store.list()).length, 1);
+  assert.equal((await a.store.list())[0].kind, 'diary');
 });
