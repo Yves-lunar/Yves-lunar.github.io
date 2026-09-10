@@ -55,8 +55,10 @@
 
   function toItem(row) {
     const isLog = row.kind === "diary" && row.title === logTitle;
+    const project = row.kind === "note" && /^<!--little-days-project-updated:(\d{4}-\d{2}-\d{2}T[\d:.]+Z)-->\n/.exec(row.body || "");
     return {
-      id: row.id, kind: isLog ? "log" : row.kind, title: isLog ? "" : row.title || "", body: row.body || "",
+      id: row.id, kind: isLog ? "log" : row.kind, title: isLog ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
+      updated: project ? project[1] : row.created,
       day: row.day || "", done: row.done ? 1 : 0, created: row.created
     };
   }
@@ -93,6 +95,11 @@
       result.day = input.day || null;
     }
     if (input.done !== undefined) result.done = !!input.done;
+    // Keep the edit timestamp with project text, compatible with existing tables.
+    if (input.kind === "note" && typeof result.body === "string") {
+      result.body = `<!--little-days-project-updated:${new Date().toISOString()}-->\n${result.body}`;
+      if (result.body.length > 50000) throw { code: "INVALID_INPUT" };
+    }
     return result;
   }
 

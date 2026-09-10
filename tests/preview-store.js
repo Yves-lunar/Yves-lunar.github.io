@@ -18,7 +18,7 @@
         const row = { id: crypto.randomUUID(), created: new Date().toISOString(), title: "", body: "", done: 0, ...input };
         entries.push(row); return row;
       }
-      entries = entries.map(item => item.id === input.id ? { ...item, ...input } : item);
+      entries = entries.map(item => item.id === input.id ? { ...item, ...input, ...(input.kind === "note" ? {updated:new Date().toISOString()} : {}) } : item);
       return entries.find(item => item.id === input.id);
     },
     errorMessage() { return "模拟保存失败。"; }

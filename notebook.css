@@ -106,6 +106,19 @@ footer { margin-top: 30px; }
 .archive-entry time { font-size: 11px; color: #a2ab97; }
 .archive-entry button { border: 0; background: transparent; color: #a8ad9f; font-size: 11px; padding: 3px 0 3px 12px; }
 .archive-entry p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 2; margin: 12px 0 0; }
+.format-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; border-top: 1px solid #dedfd4; padding: 7px 0; margin-top: 8px; }
+.project-card .format-toolbar button { background: transparent; border: 0; color: #69775f; min-width: 28px; min-height: 30px; padding: 4px 6px; border-radius: 5px; font-size: 13px; }
+.project-card .format-toolbar button:hover { background: #dfe5d5; }
+.project-card .format-toolbar button:disabled { opacity: .35; }
+.format-bold { font-weight: 700; }
+.format-underline { text-decoration: underline; }
+.format-strike { text-decoration: line-through; }
+.format-color { position: relative; display: grid; place-items: center; width: 28px; height: 30px; border-bottom: 2px solid #879773; cursor: pointer; }
+.project-card .format-color select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.format-preview { margin-left: auto; }
+.markdown-preview { font-size: 14px; line-height: 1.9; min-height: 100px; padding: 12px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.markdown-list-line { display: flex; align-items: baseline; gap: 8px; }
+.project-card .markdown-list-line input { appearance: auto; flex: 0 0 15px; width: 15px; height: 15px; padding: 0; margin: 0; accent-color: #83936d; }
 .archive-entry-actions, .archive-edit-actions { display: flex; align-items: center; gap: 12px; }
 .archive-edit-form textarea { display: block; box-sizing: border-box; width: 100%; min-height: 110px; margin-top: 14px; padding: 12px; border: 1px solid #cbd7bf; border-radius: 8px; background: #fff; color: inherit; font: inherit; font-size: 15px; line-height: 2; resize: none; overflow: hidden; }
 .archive-edit-actions { justify-content: flex-end; margin-top: 12px; }

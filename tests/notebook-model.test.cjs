@@ -1,6 +1,26 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {dayKey, archiveGroups, recentDiaries} = require('../notebook-model.js');
+const {recentProjects, formatSelection} = require('../notebook-model.js');
+
+test('projects sort by latest saved edit with creation fallback without changing other entries', () => {
+  const items = [{id:'old',kind:'note',created:'2026-09-01',updated:'2026-09-10'},
+    {id:'new',kind:'note',created:'2026-09-09'}, {id:'log',kind:'log',created:'2026-09-11'}];
+  assert.deepEqual(recentProjects(items).map(row=>row.id), ['old','new']);
+  assert.equal(items.length,3);
+});
+
+test('formatting preserves surrounding text and handles multiline selections', () => {
+  assert.equal(formatSelection('前正文后',1,3,'bold').text,'前**正文**后');
+  assert.equal(formatSelection('正文',0,2,'underline').text,'<u>正文</u>');
+  assert.equal(formatSelection('正文',0,2,'strike').text,'~~正文~~');
+  assert.equal(formatSelection('甲\n乙\n丙',0,4,'check').text,'- [ ] 甲\n- [ ] 乙\n丙');
+  assert.equal(formatSelection('甲\n乙',0,3,'ordered').text,'1. 甲\n2. 乙');
+  assert.equal(formatSelection('甲',0,1,'color','#ff0000').text,'<span style="color:#ff0000">甲</span>');
+  assert.equal(formatSelection('',0,0,'list').text,'- ');
+  assert.equal(formatSelection('\n甲',0,0,'list').text,'- \n甲');
+  assert.equal(formatSelection('甲\n乙',0,3,'bold').text,'**甲**\n**乙**');
+});
 
 test('recent papers show four newest submissions and exclude daily logs', () => {
   const entries = Array.from({length:7},(_,i)=>({id:String(i),kind:'diary',day:'2026-09-01',created:`2026-09-0${i+1}T10:00:00Z`}));

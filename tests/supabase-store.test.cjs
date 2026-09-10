@@ -99,6 +99,22 @@ test('loads 250 records even when gateway caps responses below requested page si
   assert.equal(a.calls.length, 8);
 });
 
+test('edited projects preserve markdown and shared ordering without a schema migration', async () => {
+  const remote = new Map();
+  const id = randomUUID();
+  remote.set(id, {id,kind:'note',title:'旧项目',body:'旧正文',created:'2026-09-01T00:00:00Z'});
+  const a = visitor(remote), b = visitor(remote);
+  assert.equal((await a.store.list())[0].body,'旧正文');
+  const body = '**加粗**\n<u>下划线</u>\n- [ ] 任务\n<span style="color:#ff0000">颜色</span>';
+  await a.store.mutate('PATCH',{id,kind:'note',title:'修改后的项目',body});
+  const loaded = (await b.store.list())[0];
+  assert.equal(loaded.body,body);
+  assert.ok(Date.parse(loaded.updated) > Date.parse(loaded.created));
+  assert.equal(loaded.created,'2026-09-01T00:00:00Z');
+  assert.equal(remote.size,1);
+  assert.deepEqual(Object.keys(JSON.parse(a.calls.find(call=>call.method==='PATCH').body)).sort(),['body','title']);
+});
+
 test('missing Publishable Key blocks requests with actionable error', async () => {
   const a = visitor(new Map(), { missingKey:true });
   await assert.rejects(a.store.list(), error => error.code === 'PUBLISHABLE_KEY_MISSING');
