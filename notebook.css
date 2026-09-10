@@ -23,6 +23,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .project-toggle .date-chevron { flex: none; color: #a59a7e; }
 .project-unsaved { color: #b1905c; font-size: 21px; line-height: 1; }
 .project-details { padding: 0 18px 18px; }
+.project-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .22s ease, opacity .18s ease, visibility .22s; }
+.is-expanded > .project-collapse { grid-template-rows: 1fr; opacity: 1; visibility: visible; }
+.project-collapse-inner { min-height: 0; overflow: hidden; }
+.rich-project-body { min-height: 110px; padding: 12px 0; font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+.rich-project-body:focus { box-shadow: inset 0 -1px #879773; }
+.rich-project-body:empty:before { content: attr(data-placeholder); color: #aaa58f; pointer-events: none; }
+.rich-project-body p { margin: 0; }
+.rich-project-body ul, .rich-project-body ol { margin: 4px 0; padding-left: 24px; }
+.project-card .rich-project-body input[type="checkbox"] { appearance: auto; display: inline-block; width: 16px; height: 16px; padding: 0; margin: 0 5px 0 0; vertical-align: middle; accent-color: #83936d; cursor: pointer; }
+.format-strikeThrough { text-decoration: line-through; }
+@media (prefers-reduced-motion: reduce) { .project-collapse { transition: none; } }
 .project-details > .heading:first-child { border-top: 1px solid #8c79551c; padding-top: 14px; }
 .project-overflow { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 18px 8px 8px;
   color: #a09478; border: 0; background: transparent; font-size: 12px; }

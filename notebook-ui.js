@@ -3,7 +3,7 @@
   const { React, createRoot } = window.LITTLE_DAYS_RUNTIME;
   const { useState, useEffect, useLayoutEffect, useRef } = React;
   const h = React.createElement;
-  const { dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, formatSelection } = window.LITTLE_DAYS_MODEL;
+  const { dayKey, entryDay, recentDiaries, archiveGroups, recentProjects } = window.LITTLE_DAYS_MODEL;
   const store = window.LITTLE_DAYS_STORE;
   const fullDate = day => new Date(`${day}T12:00:00`).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
   const time = item => new Date(item.created).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
@@ -73,65 +73,11 @@
           h("button", { type: "button", onClick: () => { setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); select(dayKey()); } }, "回到今天"))));
   }
 
-  function formattedInline(text, depth = 0) {
-    if (depth > 10) return text;
-    const pattern = /\*\*(.+?)\*\*|~~(.+?)~~|<u>(.+?)<\/u>|<span style="color:(#[\da-fA-F]{6})">(.+?)<\/span>/g;
-    const parts = [];
-    let cursor = 0;
-    for (const match of text.matchAll(pattern)) {
-      parts.push(text.slice(cursor, match.index));
-      const tag = match[1] ? "strong" : match[2] ? "s" : match[3] ? "u" : "span";
-      parts.push(h(tag, { key: match.index, style: match[4] ? { color: match[4] } : undefined },
-        formattedInline(match[1] || match[2] || match[3] || match[5], depth + 1)));
-      cursor = match.index + match[0].length;
-    }
-    parts.push(text.slice(cursor));
-    return parts;
-  }
+  const ProjectEditor = window.LITTLE_DAYS_PROJECT_EDITOR;
 
-  function ProjectEditor({ value, onChange, disabled }) {
-    const ref = useRef(null);
-    const selection = useRef({ start: 0, end: 0 });
-    const [preview, setPreview] = useState(false);
-    const [color, setColor] = useState("#687d55");
-    function remember() {
-      if (ref.current) selection.current = { start: ref.current.selectionStart, end: ref.current.selectionEnd };
-    }
-    function format(style, tint = color) {
-      const result = formatSelection(value, selection.current.start, selection.current.end, style, tint);
-      if (result.text.length > 49000) return;
-      onChange(result.text);
-      requestAnimationFrame(() => { ref.current?.focus(); ref.current?.setSelectionRange(result.start, result.end); remember(); });
-    }
-    return h("div", { className: "project-editor" },
-      preview ? h("div", { className: "markdown-preview", "aria-label": "项目正文预览" },
-        value ? value.split("\n").map((line, index) => {
-          const task = /^- \[([ xX])\] (.*)$/.exec(line);
-          const list = /^(?:[-*] |(\d+)\. )(.*)$/.exec(line);
-          return h("div", { key: index, className: task || list ? "markdown-list-line" : "markdown-line" },
-            task ? h("input", { type: "checkbox", checked: task[1].toLowerCase() === "x", disabled,
-              "aria-label": `完成 ${task[2]}`, onChange: e => { const lines = value.split("\n"); lines[index] = `- [${e.target.checked ? "x" : " "}] ${task[2]}`; onChange(lines.join("\n")); } })
-              : list ? h("span", null, list[1] ? `${list[1]}.` : "•") : null,
-            h("span", null, formattedInline(task ? task[2] : list ? list[2] : line || "\u00a0")));
-        }) : "还没有正文")
-        : h("div", { onSelect: remember, onKeyUp: remember, onMouseUp: remember, onBlur: remember },
-          h(AutoText, { editorRef: ref, label: "项目进展", value, disabled, onChange, placeholder: "写下目前的进展、想法和下一步…" })),
-      h("div", { className: "format-toolbar", role: "group", "aria-label": "正文格式" },
-        [["bold", "B", "加粗"], ["underline", "U", "下划线"], ["strike", "S", "删除线"], ["list", "☷", "无序列表"], ["ordered", "1.", "有序列表"], ["check", "☐", "待办方框"]].map(([style, label, name]) =>
-          h("button", { key: style, type: "button", className: `format-${style}`, title: name, "aria-label": name, disabled: disabled || preview,
-            onMouseDown: e => e.preventDefault(), onClick: () => format(style) }, label)),
-        h("label", { className: "format-color", title: "文字颜色", style: { borderColor: color } }, "A",
-          h("select", { "aria-label": "文字颜色", value: "", disabled: disabled || preview,
-            onChange: e => { setColor(e.target.value); format("color", e.target.value); } },
-            h("option", { value: "", disabled: true }, "文字颜色"),
-            [["#687d55", "苔绿"], ["#b34e4e", "砖红"], ["#476f9b", "雾蓝"], ["#89649e", "浅紫"], ["#a87825", "赭黄"], ["#444444", "深灰"]].map(([value, name]) => h("option", { key: value, value }, name)))),
-        h("button", { type: "button", className: "format-preview", "aria-pressed": preview, onClick: () => setPreview(!preview) }, preview ? "编辑" : "预览")));
-  }
-
-  function Project({ item, index, busy, save }) {
+  function Project({ item, index, busy, save, expanded, setExpanded }) {
     const [title, setTitle] = useState(item.title);
     const [body, setBody] = useState(item.body);
-    const [expanded, setExpanded] = useState(false);
     const titleRef = useRef(null);
     const defaultTitle = ["新的项目", "新建项目", "我的第一个项目"].includes(title);
     useLayoutEffect(() => {
@@ -145,7 +91,8 @@
         h("span", { className: "project-summary-title" }, title || item.title),
         changed && h("span", { className: "project-unsaved", "aria-label": "有未保存的修改" }, "·"),
         h("span", { className: `date-chevron ${expanded ? "open" : ""}`, "aria-hidden": true }, "⌄")),
-      expanded && h("div", { id: detailsId, className: "project-details" },
+      h("div", { id: detailsId, className: "project-collapse", inert: expanded ? undefined : "", "aria-hidden": !expanded },
+      h("div", { className: "project-collapse-inner" }, h("div", { className: "project-details" },
       h("div", { className: "heading" }, h("small", null, `PROJECT ${String(index + 1).padStart(2, "0")}`),
         h("button", { type: "button", className: "delete", "aria-label": `删除项目 ${item.title}`, disabled: busy,
           onClick: () => save("DELETE", { id: item.id }) }, "×")),
@@ -159,7 +106,7 @@
               setTitle(current => current === title ? title.trim() : current);
               setExpanded(false);
             }
-          } }, changed ? "保存修改 ✓" : "已保存 ✓"))));
+          } }, changed ? "保存修改 ✓" : "已保存 ✓"))))));
   }
 
   function ArchiveEntry({ item, day, editable, busy, save }) {
@@ -228,6 +175,14 @@
     const [fullscreen, setFullscreen] = useState(false);
     const [archive, setArchive] = useState(null);
     const [showAllProjects, setShowAllProjects] = useState(false);
+    const [openProject, setOpenProject] = useState(null);
+    useEffect(() => {
+      function outside(event) {
+        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) setOpenProject(null);
+      }
+      document.addEventListener("pointerdown", outside);
+      return () => document.removeEventListener("pointerdown", outside);
+    }, []);
     useEffect(() => {
       let active = true;
       store.list().then(data => { if (active) { setItems(data); setReady(true); } })
@@ -309,7 +264,8 @@
             h("p", { className: "subtitle" }, "想法有落点，进展有记录。"),
             h("div", { id: "project-list", className: "project-list" },
               projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !showAllProjects && index >= 3 },
-                h(Project, { item, index, busy, save })))),
+                h(Project, { item, index, busy, save, expanded: openProject === item.id,
+                  setExpanded: open => setOpenProject(current => open ? item.id : current === item.id ? null : current) })))),
             projects.length > 3 && h("button", { type: "button", className: `project-overflow ${showAllProjects ? "showing-all" : ""}`,
               "aria-expanded": showAllProjects, "aria-controls": "project-list", onClick: () => setShowAllProjects(!showAllProjects) },
               h("span", null, showAllProjects ? "收起其余项目" : `还有 ${projects.length - 3} 个项目，点击展开`),

@@ -115,6 +115,17 @@ test('edited projects preserve markdown and shared ordering without a schema mig
   assert.deepEqual(Object.keys(JSON.parse(a.calls.find(call=>call.method==='PATCH').body)).sort(),['body','title']);
 });
 
+test('rich project formatting and checked state survive another visitor reading', async () => {
+  const remote = new Map();
+  const a = visitor(remote), b = visitor(remote);
+  const body = '__little_days_rich_v1__\n<div><b>重点</b><input type="checkbox" checked contenteditable="false">任务</div>';
+  const item = await a.store.mutate('POST', {kind:'note',title:'格式项目',body});
+  assert.equal((await b.store.list())[0].body,body);
+  await b.store.mutate('PATCH',{id:item.id,kind:'note',title:item.title,body:body.replace(' checked','')});
+  assert.equal((await a.store.list())[0].body,body.replace(' checked',''));
+  assert.equal(remote.size,1);
+});
+
 test('missing Publishable Key blocks requests with actionable error', async () => {
   const a = visitor(new Map(), { missingKey:true });
   await assert.rejects(a.store.list(), error => error.code === 'PUBLISHABLE_KEY_MISSING');
@@ -157,6 +168,8 @@ test('page loads storage, runtime and model before UI without document SDK', () 
   assert.ok(html.indexOf('./supabase-store.js') < html.indexOf('./app.js'));
   assert.ok(html.indexOf('./app.js') < html.indexOf('./notebook-ui.js'));
   assert.ok(html.indexOf('./notebook-model.js') < html.indexOf('./notebook-ui.js'));
+  assert.ok(html.indexOf('./app.js') < html.indexOf('./project-editor.js'));
+  assert.ok(html.indexOf('./project-editor.js') < html.indexOf('./notebook-ui.js'));
   assert.ok(!html.includes('cloudbase.full.js'));
   const ui = fs.readFileSync(path.join(root,'notebook-ui.js'),'utf8');
   assert.ok(ui.includes('store.mutate(method, input)'));
