@@ -132,7 +132,7 @@
         : h("p", null, item.body));
   }
 
-  function Archive({ kind, items, busy, error, save, onClose }) {
+  function Archive({ kind, items, busy, error, save, onClose, undoNotice }) {
     const groups = archiveGroups(items, kind);
     const [activeDay, setActiveDay] = useState(groups[0]?.day || "");
     const sections = useRef(new Map());
@@ -151,6 +151,7 @@
         groups.length > 0 && h("nav", { className: "archive-dates", "aria-label": `${title}日期选择` },
           groups.map(group => h("button", { type: "button", key: group.day, "aria-pressed": active === group.day, onClick: () => jump(group.day) },
             h("span", null, group.day.slice(0, 4)), h("strong", null, group.day.slice(5).replace("-", " / ")))))),
+      undoNotice,
       error && h("p", { className: "error", role: "alert" }, error),
       h("div", { className: "archive-scroll" },
         !groups.length && h("div", { className: "archive-empty" }, h("span", { "aria-hidden": true }, "✧"), h("h3", null, "这里，等着你的第一段记录"),
@@ -176,6 +177,27 @@
     const [archive, setArchive] = useState(null);
     const [showAllProjects, setShowAllProjects] = useState(false);
     const [openProject, setOpenProject] = useState(null);
+    const pendingDeletes = useRef([]);
+    const [deletions, setDeletions] = useState([]);
+    function showDeletions() { setDeletions([...pendingDeletes.current]); }
+    function undoDelete(id) {
+      pendingDeletes.current = pendingDeletes.current.filter(entry => entry.id !== id || entry.deleting);
+      showDeletions();
+    }
+    useEffect(() => {
+      if (!ready) return;
+      const timer = setInterval(async () => {
+        if (saving.current) return;
+        const entry = pendingDeletes.current.find(row => !row.deleting && row.until <= Date.now());
+        if (!entry) return;
+        entry.deleting = true; showDeletions();
+        await commit("DELETE", { id: entry.id });
+        // Failed deletes become visible again, with the existing error message.
+        pendingDeletes.current = pendingDeletes.current.filter(row => row.id !== entry.id);
+        showDeletions();
+      }, 250);
+      return () => clearInterval(timer);
+    }, [ready]);
     useEffect(() => {
       function outside(event) {
         if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) setOpenProject(null);
@@ -190,6 +212,18 @@
       return () => { active = false; };
     }, []);
     async function save(method, input) {
+      const item = items.find(row => row.id === input.id);
+      if (method === "DELETE" && item && item.kind !== "todo") {
+        if (!pendingDeletes.current.some(row => row.id === item.id)) {
+          pendingDeletes.current.push({ id: item.id, until: Date.now() + 10000, deleting: false,
+            label: item.kind === "note" ? `项目「${item.title}」` : item.kind === "log" ? "流水账" : "小纸条" });
+          showDeletions();
+        }
+        return true;
+      }
+      return commit(method, input);
+    }
+    async function commit(method, input) {
       if (!ready || saving.current) return false;
       saving.current = true;
       setBusy(true); setError("");
@@ -198,7 +232,7 @@
         setItems(previous => method === "DELETE" ? previous.filter(row => row.id !== input.id)
           : method === "POST" ? [...previous, item] : previous.map(row => row.id === item.id ? item : row));
         return true;
-      } catch (err) { setError(store.errorMessage(err) + " 文字已保留，请重试。"); return false; }
+      } catch (err) { setError(store.errorMessage(err) + (method === "DELETE" ? " 记录已恢复，请重试。" : " 文字已保留，请重试。")); return false; }
       finally { saving.current = false; setBusy(false); }
     }
     async function submitLog(event) {
@@ -219,10 +253,16 @@
           h("button", { type: "submit", disabled: !ready || busy || !log.trim() }, busy ? "正在保存…" : "收进日志箱 ↗")));
     }
     const todos = items.filter(item => item.kind === "todo");
+    const visibleItems = items.filter(item => !deletions.some(row => row.id === item.id));
     const projects = recentProjects(items);
-    const diaries = items.filter(item => item.kind === "diary");
-    const logs = items.filter(item => item.kind === "log");
-    const recent = recentDiaries(items);
+    const visibleProjects = recentProjects(visibleItems);
+    const diaries = visibleItems.filter(item => item.kind === "diary");
+    const logs = visibleItems.filter(item => item.kind === "log");
+    const recent = recentDiaries(visibleItems);
+    const undoNotice = deletions.length > 0 && h("div", { className: "delete-undo-notices", "aria-label": "删除撤回", "aria-live": "polite" },
+      deletions.map(entry => h("div", { key: entry.id, className: "delete-undo-notice" },
+        h("span", null, entry.deleting ? "正在删除…" : `已移除${entry.label}，10 秒内可撤回`),
+        h("button", { type: "button", disabled: entry.deleting, onClick: () => undoDelete(entry.id) }, "撤回"))));
     const done = todos.filter(item => item.done).length;
     const show = kind => tab === "all" || tab === kind;
     return h(React.Fragment, null,
@@ -263,14 +303,14 @@
               h("button", { type: "button", className: "soft", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "新的项目", body: "" }) }, "＋ 新项目")),
             h("p", { className: "subtitle" }, "想法有落点，进展有记录。"),
             h("div", { id: "project-list", className: "project-list" },
-              projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !showAllProjects && index >= 3 },
+              projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !visibleProjects.some(row => row.id === item.id) || (!showAllProjects && visibleProjects.findIndex(row => row.id === item.id) >= 3) },
                 h(Project, { item, index, busy, save, expanded: openProject === item.id,
                   setExpanded: open => setOpenProject(current => open ? item.id : current === item.id ? null : current) })))),
-            projects.length > 3 && h("button", { type: "button", className: `project-overflow ${showAllProjects ? "showing-all" : ""}`,
+            visibleProjects.length > 3 && h("button", { type: "button", className: `project-overflow ${showAllProjects ? "showing-all" : ""}`,
               "aria-expanded": showAllProjects, "aria-controls": "project-list", onClick: () => setShowAllProjects(!showAllProjects) },
-              h("span", null, showAllProjects ? "收起其余项目" : `还有 ${projects.length - 3} 个项目，点击展开`),
+              h("span", null, showAllProjects ? "收起其余项目" : `还有 ${visibleProjects.length - 3} 个项目，点击展开`),
               h("span", { className: `date-chevron ${showAllProjects ? "open" : ""}`, "aria-hidden": true }, "⌄")),
-            !projects.length && h("div", { className: "note-empty" }, h("span", null, "↗"), h("h3", null, "让想法从这里开始"), h("p", null, "添加一个项目，随时写下新的进展。"),
+            !visibleProjects.length && h("div", { className: "note-empty" }, h("span", null, "↗"), h("h3", null, "让想法从这里开始"), h("p", null, "添加一个项目，随时写下新的进展。"),
               h("button", { type: "button", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "我的第一个项目", body: "" }) }, "创建项目 ＋")),
             h("p", { className: "footnote" }, "✧ 每一点进展，都算数。")),
           show("diary") && h("section", { className: "panel journal", "aria-labelledby": "journal-title" },
@@ -295,12 +335,14 @@
               h("span", { className: "archive-icon", "aria-hidden": true }, "▱"), h("span", null, h("strong", null, "小纸条"), h("small", null, `${diaries.length} 段心情`)), h("span", { "aria-hidden": true }, "↗")))),
         h("footer", null, h("i", null, "little days / 日常"), h("span", null, "平凡的一天，也值得被记录。"),
           h("span", { role: "status" }, busy ? "正在保存…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…"))),
+      !archive && !fullscreen && undoNotice,
       fullscreen && h(Modal, { titleId: "writer-title", className: "writer-dialog", onClose: () => setFullscreen(false) },
+        undoNotice,
         h("div", { className: "writer-top" }, h("div", null, h("small", null, "A MOMENT, JUST FOR WRITING"), h("h2", { id: "writer-title" }, "流水账")),
           h("button", { type: "button", className: "close-button", onClick: () => setFullscreen(false) }, "退出全屏 ×")),
         h("div", { className: "writer-body" }, h("p", { className: "writer-date" }, fullDate(dayKey())),
           error && h("p", { className: "error", role: "alert" }, error), logForm(true))),
-      archive && h(Archive, { kind: archive, items, busy, error, save, onClose: () => setArchive(null) }));
+      archive && h(Archive, { kind: archive, items: visibleItems, busy, error, save, undoNotice, onClose: () => setArchive(null) }));
   }
   createRoot(document.getElementById("root")).render(h(Notebook));
 })();

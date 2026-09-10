@@ -131,6 +131,11 @@ footer { margin-top: 30px; }
 .markdown-list-line { display: flex; align-items: baseline; gap: 8px; }
 .project-card .markdown-list-line input { appearance: auto; flex: 0 0 15px; width: 15px; height: 15px; padding: 0; margin: 0; accent-color: #83936d; }
 .archive-entry-actions, .archive-edit-actions { display: flex; align-items: center; gap: 12px; }
+.delete-undo-notices { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 1000; width: min(480px, calc(100% - 32px)); display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; }
+.delete-undo-notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 18px; background: #f4f3eb; color: #686d5c; border: 1px solid #d7ddcd; border-radius: 12px; box-shadow: 0 6px 24px #35412520; font-size: 13px; }
+.delete-undo-notice span { overflow-wrap: anywhere; min-width: 0; }
+.delete-undo-notice button { flex: none; background: #dfe7d7; color: #526846; border: 0; border-radius: 7px; padding: 8px 14px; font: inherit; cursor: pointer; }
+.delete-undo-notice button:disabled { opacity: .5; cursor: default; }
 .archive-edit-form textarea { display: block; box-sizing: border-box; width: 100%; min-height: 110px; margin-top: 14px; padding: 12px; border: 1px solid #cbd7bf; border-radius: 8px; background: #fff; color: inherit; font: inherit; font-size: 15px; line-height: 2; resize: none; overflow: hidden; }
 .archive-edit-actions { justify-content: flex-end; margin-top: 12px; }
 .archive-edit-actions button { padding: 8px 14px; font-size: 12px; border-radius: 7px; }
