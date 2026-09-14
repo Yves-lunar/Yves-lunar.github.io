@@ -143,6 +143,12 @@ test('tools share the existing table but stay separate from logs and papers', as
   assert.equal(edited.kind,'tool');
   assert.equal(edited.body,'修改文本');
   assert.equal(edited.created,tool.created);
+  assert.equal(edited.title,'修改文本');
+  await b.store.mutate('PATCH',{id:tool.id,kind:'tool',title:'常用资料',body:edited.body});
+  const titled = (await a.store.list()).find(row=>row.id===tool.id);
+  assert.equal(titled.title,'常用资料');
+  assert.equal(titled.kind,'tool');
+  assert.equal(titled.body,'修改文本');
   await b.store.mutate('DELETE',{id:tool.id});
   assert.equal((await a.store.list()).length,2);
 });

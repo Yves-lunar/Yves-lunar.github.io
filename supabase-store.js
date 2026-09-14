@@ -56,10 +56,11 @@
 
   function toItem(row) {
     const isLog = row.kind === "diary" && row.title === logTitle;
-    const isTool = row.kind === "diary" && row.title === toolTitle;
+    const isTool = row.kind === "diary" && (row.title === toolTitle || (row.title || "").startsWith(toolTitle + ":"));
+    const toolName = isTool ? (row.title.slice(toolTitle.length + 1) || (row.body || "").trim().split("\n")[0].slice(0, 40) || "未命名条目") : "";
     const project = row.kind === "note" && /^<!--little-days-project-updated:(\d{4}-\d{2}-\d{2}T[\d:.]+Z)-->\n/.exec(row.body || "");
     return {
-      id: row.id, kind: isTool ? "tool" : isLog ? "log" : row.kind, title: isLog || isTool ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
+      id: row.id, kind: isTool ? "tool" : isLog ? "log" : row.kind, title: isTool ? toolName : isLog ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
       updated: project ? project[1] : row.created,
       day: row.day || "", done: row.done ? 1 : 0, created: row.created
     };
@@ -97,6 +98,10 @@
       result.day = input.day || null;
     }
     if (input.done !== undefined) result.done = !!input.done;
+    if (input.kind === "tool" && input.title !== undefined) {
+      if (!input.title.trim() || input.title.trim().length > 200) throw { code: "INVALID_INPUT" };
+      result.title = toolTitle + ":" + input.title.trim();
+    }
     // Keep the edit timestamp with project text, compatible with existing tables.
     if (input.kind === "note" && typeof result.body === "string") {
       result.body = `<!--little-days-project-updated:${new Date().toISOString()}-->\n${result.body}`;
@@ -111,7 +116,7 @@
       // IDs and creation timestamps come from PostgreSQL defaults.
       const data = { ...fields(input), kind: ["log", "tool"].includes(input.kind) ? "diary" : input.kind };
       if (input.kind === "log") data.title = logTitle;
-      if (input.kind === "tool") data.title = toolTitle;
+      if (input.kind === "tool" && input.title === undefined) data.title = toolTitle;
       const rows = await request("POST", { select: columns }, data);
       if (rows.length !== 1 || !rows[0].id) throw { code: "INVALID_RESPONSE" };
       return toItem(rows[0]);

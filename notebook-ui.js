@@ -112,23 +112,25 @@
   function ArchiveEntry({ item, day, editable, busy, save }) {
     const [editing, setEditing] = useState(false);
     const [body, setBody] = useState(item.body);
+    const [title, setTitle] = useState(item.title);
     async function submit(event) {
       event.preventDefault();
-      if (busy || !body.trim() || body === item.body) return;
-      if (await save("PATCH", { id: item.id, body })) setEditing(false);
+      if (busy || !body.trim() || (item.kind === "tool" && !title.trim()) || (body === item.body && title === item.title)) return;
+      if (await save("PATCH", { id: item.id, body, ...(item.kind === "tool" ? { kind: "tool", title: title.trim() } : {}) })) setEditing(false);
     }
     return h("article", { className: "archive-entry" },
       h("div", { className: "heading" }, h("time", { dateTime: item.created }, time(item)),
         !editing && h("div", { className: "archive-entry-actions" },
           editable && h("button", { type: "button", disabled: busy,
-            onClick: () => { setBody(item.body); setEditing(true); } }, "编辑"),
+            onClick: () => { setBody(item.body); setTitle(item.title); setEditing(true); } }, "编辑"),
           h("button", { type: "button", disabled: busy, "aria-label": `删除 ${day} ${time(item)} 的记录`,
             onClick: () => save("DELETE", { id: item.id }) }, "删除"))),
       editing ? h("form", { className: "archive-edit-form", onSubmit: submit },
+        item.kind === "tool" && h("input", { className: "tool-title-input", "aria-label": "编辑小工具标题", value: title, maxLength: 200, disabled: busy, onChange: e => setTitle(e.target.value) }),
         h(AutoText, { label: `编辑 ${day} ${time(item)} 的${item.kind === "tool" ? "小工具" : "日志"}`, value: body, onChange: setBody, autoFocus: true, disabled: busy }),
         h("div", { className: "archive-edit-actions" },
           h("button", { type: "button", disabled: busy, onClick: () => { setBody(item.body); setEditing(false); } }, "取消"),
-          h("button", { type: "submit", className: "archive-save", disabled: busy || !body.trim() || body === item.body }, busy ? "正在保存…" : "保存修改")))
+          h("button", { type: "submit", className: "archive-save", disabled: busy || !body.trim() || (item.kind === "tool" && !title.trim()) || (body === item.body && title === item.title) }, busy ? "正在保存…" : "保存修改")))
         : h("p", null, item.body));
   }
 
@@ -174,6 +176,7 @@
     const [log, setLog] = useState("");
     const [logStatus, setLogStatus] = useState("");
     const [toolText, setToolText] = useState("");
+    const [toolName, setToolName] = useState("");
     const [toolStatus, setToolStatus] = useState("");
     const [fullscreen, setFullscreen] = useState(false);
     const [archive, setArchive] = useState(null);
@@ -256,15 +259,17 @@
     }
     function toolForm(immersive) {
       return h("form", { className: immersive ? "immersive-form" : "log-form", onSubmit: async event => {
-        event.preventDefault(); const text = toolText;
-        if (text.trim() && await save("POST", { kind: "tool", body: text.trim(), day: dayKey() })) {
+        event.preventDefault(); const text = toolText, title = toolName;
+        if (title.trim() && text.trim() && await save("POST", { kind: "tool", title: title.trim(), body: text.trim(), day: dayKey() })) {
+          setToolName(current => current === title ? "" : current);
           setToolText(current => current === text ? "" : current); setToolStatus("已加入下方列表");
         }
       } },
+        h("input", { className: "tool-title-input", "aria-label": "小工具标题", placeholder: "给这一条起个标题", value: toolName, maxLength: 200, onChange: e => { setToolName(e.target.value); setToolStatus(""); } }),
         h(AutoText, { label: immersive ? "全屏小工具" : "小工具内容", value: toolText, onChange: text => { setToolText(text); setToolStatus(""); }, autoFocus: immersive, placeholder: "写下想保存的内容…" }),
         h("div", { className: "log-form-bottom" },
           h("span", { className: "log-feedback", role: "status" }, toolStatus || `${Array.from(toolText).length} 字 · 提交后加入下方列表`),
-          h("button", { type: "submit", disabled: !ready || busy || !toolText.trim() }, busy ? "正在保存…" : "添加条目 ↗")));
+          h("button", { type: "submit", disabled: !ready || busy || !toolText.trim() || !toolName.trim() }, busy ? "正在保存…" : "添加条目 ↗")));
     }
     function diaryForm(immersive) {
       return h("form", { className: immersive ? "immersive-form" : "diary-input", onSubmit: async event => {
@@ -314,8 +319,9 @@
             toolForm(false)),
           h("div", { className: "heading" }, h("h3", null, "过去的条目"), h("small", null, `${toolEntries.length} 条`)),
           h("ul", { className: "tools-list", "aria-label": "小工具条目列表" }, toolEntries.map(item =>
-            h("li", { key: item.id }, h("p", { className: "tool-entry-date" }, fullDate(entryDay(item))),
-              h(ArchiveEntry, { item, day: entryDay(item), editable: true, busy, save })))),
+            h("li", { key: item.id }, h("details", { className: "tool-details" },
+              h("summary", null, h("span", null, item.title || item.body.trim().split("\n")[0].slice(0, 40) || "未命名条目"), h("small", null, entryDay(item))),
+              h(ArchiveEntry, { item, day: entryDay(item), editable: true, busy, save }))))),
           !toolEntries.length && h("p", { className: "empty" }, ready ? "还没有条目，在上面写下第一条吧。" : "正在读取…")),
         !["log", "tool"].includes(tab) && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
           show("todo") && h("section", { className: "panel tasks", "aria-labelledby": "tasks-title" },
@@ -357,7 +363,7 @@
             diaryForm(false),
             h("div", { className: "heading diary-heading" }, h("h3", null, "最近的小纸条"),
               h("button", { type: "button", className: "view-all-papers", onClick: () => setArchive("diary") }, `全部 ${diaries.length} 条 ↗`)),
-            recent.map(item => h("article", { className: "entry", key: item.id }, h("small", null, `${entryDay(item)} · ${time(item)}`), h("p", null, item.body),
+            recent.slice(0, 2).map(item => h("article", { className: "entry", key: item.id }, h("small", null, `${entryDay(item)} · ${time(item)}`), h("p", null, item.body),
               h("button", { type: "button", disabled: busy, onClick: () => save("DELETE", { id: item.id }) }, "删除"))),
             !recent.length && h("p", { className: "empty" }, "还没有小纸条，写下此刻的心情吧。"))),
         h("section", { className: "archive-launchers", "aria-label": "记录归档" },
