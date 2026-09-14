@@ -125,7 +125,7 @@
           h("button", { type: "button", disabled: busy, "aria-label": `删除 ${day} ${time(item)} 的记录`,
             onClick: () => save("DELETE", { id: item.id }) }, "删除"))),
       editing ? h("form", { className: "archive-edit-form", onSubmit: submit },
-        h(AutoText, { label: `编辑 ${day} ${time(item)} 的日志`, value: body, onChange: setBody, autoFocus: true, disabled: busy }),
+        h(AutoText, { label: `编辑 ${day} ${time(item)} 的${item.kind === "tool" ? "小工具" : "日志"}`, value: body, onChange: setBody, autoFocus: true, disabled: busy }),
         h("div", { className: "archive-edit-actions" },
           h("button", { type: "button", disabled: busy, onClick: () => { setBody(item.body); setEditing(false); } }, "取消"),
           h("button", { type: "submit", className: "archive-save", disabled: busy || !body.trim() || body === item.body }, busy ? "正在保存…" : "保存修改")))
@@ -173,6 +173,8 @@
     const [day, setDay] = useState(() => dayKey());
     const [log, setLog] = useState("");
     const [logStatus, setLogStatus] = useState("");
+    const [toolText, setToolText] = useState("");
+    const [toolStatus, setToolStatus] = useState("");
     const [fullscreen, setFullscreen] = useState(false);
     const [archive, setArchive] = useState(null);
     const [showAllProjects, setShowAllProjects] = useState(false);
@@ -216,7 +218,7 @@
       if (method === "DELETE" && item && item.kind !== "todo") {
         if (!pendingDeletes.current.some(row => row.id === item.id)) {
           pendingDeletes.current.push({ id: item.id, until: Date.now() + 10000, deleting: false,
-            label: item.kind === "note" ? `项目「${item.title}」` : item.kind === "log" ? "流水账" : "小纸条" });
+            label: item.kind === "note" ? `项目「${item.title}」` : item.kind === "log" ? "流水账" : item.kind === "tool" ? "小工具条目" : "小纸条" });
           showDeletions();
         }
         return true;
@@ -252,6 +254,18 @@
           h("span", { className: "log-feedback", role: "status" }, logStatus || `${Array.from(log).length} 字 · 提交后收进日志箱`),
           h("button", { type: "submit", disabled: !ready || busy || !log.trim() }, busy ? "正在保存…" : "收进日志箱 ↗")));
     }
+    function toolForm(immersive) {
+      return h("form", { className: immersive ? "immersive-form" : "log-form", onSubmit: async event => {
+        event.preventDefault(); const text = toolText;
+        if (text.trim() && await save("POST", { kind: "tool", body: text.trim(), day: dayKey() })) {
+          setToolText(current => current === text ? "" : current); setToolStatus("已加入下方列表");
+        }
+      } },
+        h(AutoText, { label: immersive ? "全屏小工具" : "小工具内容", value: toolText, onChange: text => { setToolText(text); setToolStatus(""); }, autoFocus: immersive, placeholder: "写下想保存的内容…" }),
+        h("div", { className: "log-form-bottom" },
+          h("span", { className: "log-feedback", role: "status" }, toolStatus || `${Array.from(toolText).length} 字 · 提交后加入下方列表`),
+          h("button", { type: "submit", disabled: !ready || busy || !toolText.trim() }, busy ? "正在保存…" : "添加条目 ↗")));
+    }
     function diaryForm(immersive) {
       return h("form", { className: immersive ? "immersive-form" : "diary-input", onSubmit: async event => {
         event.preventDefault(); const text = diary;
@@ -269,6 +283,7 @@
     const diaries = visibleItems.filter(item => item.kind === "diary");
     const logs = visibleItems.filter(item => item.kind === "log");
     const recent = recentDiaries(visibleItems);
+    const toolEntries = visibleItems.filter(item => item.kind === "tool").sort((a, b) => Date.parse(b.created) - Date.parse(a.created) || b.id.localeCompare(a.id));
     const undoNotice = deletions.length > 0 && h("div", { className: "delete-undo-notices", "aria-label": "删除撤回", "aria-live": "polite" },
       deletions.map(entry => h("div", { key: entry.id, className: "delete-undo-notice" },
         h("span", null, entry.deleting ? "正在删除…" : `已移除${entry.label}，10 秒内可撤回`),
@@ -279,7 +294,7 @@
       h("header", null,
         h("a", { href: "./", className: "brand" }, h("b", null, "✳"), "日常 ", h("i", null, "little days")),
         h("nav", { className: "nav", "data-slot": "tabs-list", "aria-label": "记事本分类" },
-          [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"]].map(([value, label]) =>
+          [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"], ["tool", "小工具"]].map(([value, label]) =>
             h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-pressed": tab === value, onClick: () => setTab(value) }, label))),
         h("span", { className: "private" }, "共享记事本 ", h("b", null, "我"))),
       h("main", null,
@@ -292,7 +307,17 @@
             h("div", { className: "log-title-line" }, h("h2", { id: "log-title" }, "流水账"), h("span", null, dayKey().replaceAll("-", " / "))),
             h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen("log"), "aria-label": "全屏书写流水账" }, "⛶ 全屏")),
           logForm(false)),
-        tab !== "log" && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
+        tab === "tool" && h("section", { className: "tools-page", "aria-labelledby": "tools-title" },
+          h("div", { className: "daily-log" },
+            h("div", { className: "log-heading" }, h("h2", { id: "tools-title" }, "小工具"),
+              h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen("tool"), "aria-label": "全屏书写小工具" }, "⛶ 全屏")),
+            toolForm(false)),
+          h("div", { className: "heading" }, h("h3", null, "过去的条目"), h("small", null, `${toolEntries.length} 条`)),
+          h("ul", { className: "tools-list", "aria-label": "小工具条目列表" }, toolEntries.map(item =>
+            h("li", { key: item.id }, h("p", { className: "tool-entry-date" }, fullDate(entryDay(item))),
+              h(ArchiveEntry, { item, day: entryDay(item), editable: true, busy, save })))),
+          !toolEntries.length && h("p", { className: "empty" }, ready ? "还没有条目，在上面写下第一条吧。" : "正在读取…")),
+        !["log", "tool"].includes(tab) && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
           show("todo") && h("section", { className: "panel tasks", "aria-labelledby": "tasks-title" },
             h("small", null, "01 / TO-DO"), h("h2", { id: "tasks-title" }, "今日待办 ", h("em", null, todos.length - done)),
             h("p", { className: "subtitle" }, "一件一件，慢慢完成。"),
@@ -347,10 +372,10 @@
       !archive && !fullscreen && undoNotice,
       fullscreen && h(Modal, { titleId: "writer-title", className: `writer-dialog ${fullscreen === "diary" ? "paper-writer" : ""}`, onClose: () => setFullscreen(false) },
         undoNotice,
-        h("div", { className: "writer-top" }, h("div", null, h("small", null, "A MOMENT, JUST FOR WRITING"), h("h2", { id: "writer-title" }, fullscreen === "diary" ? "小纸条" : "流水账")),
+        h("div", { className: "writer-top" }, h("div", null, h("small", null, "A MOMENT, JUST FOR WRITING"), h("h2", { id: "writer-title" }, fullscreen === "diary" ? "小纸条" : fullscreen === "tool" ? "小工具" : "流水账")),
           h("button", { type: "button", className: "close-button", onClick: () => setFullscreen(false) }, "退出全屏 ×")),
         h("div", { className: "writer-body" }, h("p", { className: "writer-date" }, fullDate(fullscreen === "diary" ? day : dayKey())),
-          error && h("p", { className: "error", role: "alert" }, error), fullscreen === "diary" ? diaryForm(true) : logForm(true))),
+          error && h("p", { className: "error", role: "alert" }, error), fullscreen === "diary" ? diaryForm(true) : fullscreen === "tool" ? toolForm(true) : logForm(true))),
       archive && h(Archive, { kind: archive, items: visibleItems, busy, error, save, undoNotice, onClose: () => setArchive(null) }));
   }
   createRoot(document.getElementById("root")).render(h(Notebook));

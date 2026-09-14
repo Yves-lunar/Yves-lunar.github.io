@@ -132,6 +132,11 @@ footer { margin-top: 30px; }
 .project-card .markdown-list-line input { appearance: auto; flex: 0 0 15px; width: 15px; height: 15px; padding: 0; margin: 0; accent-color: #83936d; }
 .archive-entry-actions, .archive-edit-actions { display: flex; align-items: center; gap: 12px; }
 .paper-heading { gap: 12px; }
+.tools-list { list-style: none; padding: 0; margin: 22px 0 0; }
+.tools-list > li { margin-bottom: 22px; }
+.tool-entry-date { font-size: 12px; color: #929888; margin: 0 0 8px; }
+.tools-page > .heading { color: #6d7762; }
+.nav { flex-wrap: wrap; }
 .paper-heading .expand-writer { flex: none; border: 0; background: transparent; color: #8c7a98; padding: 6px 0; font-size: 12px; }
 .paper-writer { background: #f6f2f7; color: #7d6c88; }
 .paper-writer .writer-top { background: #f6f2f7; }

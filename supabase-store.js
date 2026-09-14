@@ -6,6 +6,7 @@
   // The deployed schema already accepts diary rows. An otherwise unused diary
   // title stores this subtype, so existing installations need no SQL migration.
   const logTitle = "__little_days_daily_log_v1__";
+  const toolTitle = "__little_days_tools_v1__";
 
   function settings() {
     const config = window.LITTLE_DAYS_SUPABASE;
@@ -55,9 +56,10 @@
 
   function toItem(row) {
     const isLog = row.kind === "diary" && row.title === logTitle;
+    const isTool = row.kind === "diary" && row.title === toolTitle;
     const project = row.kind === "note" && /^<!--little-days-project-updated:(\d{4}-\d{2}-\d{2}T[\d:.]+Z)-->\n/.exec(row.body || "");
     return {
-      id: row.id, kind: isLog ? "log" : row.kind, title: isLog ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
+      id: row.id, kind: isTool ? "tool" : isLog ? "log" : row.kind, title: isLog || isTool ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
       updated: project ? project[1] : row.created,
       day: row.day || "", done: row.done ? 1 : 0, created: row.created
     };
@@ -105,10 +107,11 @@
 
   async function mutate(method, input) {
     if (method === "POST") {
-      if (!["todo", "note", "diary", "log"].includes(input.kind)) throw { code: "INVALID_INPUT" };
+      if (!["todo", "note", "diary", "log", "tool"].includes(input.kind)) throw { code: "INVALID_INPUT" };
       // IDs and creation timestamps come from PostgreSQL defaults.
-      const data = { ...fields(input), kind: input.kind === "log" ? "diary" : input.kind };
+      const data = { ...fields(input), kind: ["log", "tool"].includes(input.kind) ? "diary" : input.kind };
       if (input.kind === "log") data.title = logTitle;
+      if (input.kind === "tool") data.title = toolTitle;
       const rows = await request("POST", { select: columns }, data);
       if (rows.length !== 1 || !rows[0].id) throw { code: "INVALID_RESPONSE" };
       return toItem(rows[0]);

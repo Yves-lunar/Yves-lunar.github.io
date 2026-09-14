@@ -126,6 +126,27 @@ test('rich project formatting and checked state survive another visitor reading'
   assert.equal(remote.size,1);
 });
 
+test('tools share the existing table but stay separate from logs and papers', async () => {
+  const remote = new Map();
+  const a = visitor(remote), b = visitor(remote);
+  await a.store.mutate('POST', {kind:'log',body:'流水账',day:'2026-09-14'});
+  await a.store.mutate('POST', {kind:'diary',body:'纸条',day:'2026-09-14'});
+  const tool = await a.store.mutate('POST', {kind:'tool',body:'常用文本',day:'2026-09-14'});
+  assert.equal(remote.get(tool.id).kind,'diary');
+  assert.equal(remote.get(tool.id).title,'__little_days_tools_v1__');
+  const rows = await b.store.list();
+  assert.equal(rows.filter(row=>row.kind==='tool').length,1);
+  assert.equal(rows.filter(row=>row.kind==='diary').length,1);
+  assert.equal(rows.filter(row=>row.kind==='log').length,1);
+  await b.store.mutate('PATCH',{id:tool.id,body:'修改文本'});
+  const edited = (await a.store.list()).find(row=>row.id===tool.id);
+  assert.equal(edited.kind,'tool');
+  assert.equal(edited.body,'修改文本');
+  assert.equal(edited.created,tool.created);
+  await b.store.mutate('DELETE',{id:tool.id});
+  assert.equal((await a.store.list()).length,2);
+});
+
 test('missing Publishable Key blocks requests with actionable error', async () => {
   const a = visitor(new Map(), { missingKey:true });
   await assert.rejects(a.store.list(), error => error.code === 'PUBLISHABLE_KEY_MISSING');
