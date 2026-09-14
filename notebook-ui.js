@@ -252,6 +252,16 @@
           h("span", { className: "log-feedback", role: "status" }, logStatus || `${Array.from(log).length} 字 · 提交后收进日志箱`),
           h("button", { type: "submit", disabled: !ready || busy || !log.trim() }, busy ? "正在保存…" : "收进日志箱 ↗")));
     }
+    function diaryForm(immersive) {
+      return h("form", { className: immersive ? "immersive-form" : "diary-input", onSubmit: async event => {
+        event.preventDefault(); const text = diary;
+        if (text.trim() && await save("POST", { kind: "diary", body: text.trim(), day })) setDiary(current => current === text ? "" : current);
+      } },
+        h(AutoText, { label: immersive ? "全屏小纸条" : "日记内容", value: diary, onChange: setDiary, autoFocus: immersive, placeholder: "今天，有什么想记住的？" }),
+        h("div", { className: immersive ? "log-form-bottom" : "heading" },
+          h("small", null, `${Array.from(diary).length} 字 · 记于 ${day}`),
+          h("button", { type: "submit", disabled: !ready || busy || !diary.trim() }, busy ? "正在保存…" : "收好 ✓")));
+    }
     const todos = items.filter(item => item.kind === "todo");
     const visibleItems = items.filter(item => !deletions.some(row => row.id === item.id));
     const projects = recentProjects(items);
@@ -269,7 +279,7 @@
       h("header", null,
         h("a", { href: "./", className: "brand" }, h("b", null, "✳"), "日常 ", h("i", null, "little days")),
         h("nav", { className: "nav", "data-slot": "tabs-list", "aria-label": "记事本分类" },
-          [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"]].map(([value, label]) =>
+          [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"]].map(([value, label]) =>
             h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-pressed": tab === value, onClick: () => setTab(value) }, label))),
         h("span", { className: "private" }, "共享记事本 ", h("b", null, "我"))),
       h("main", null,
@@ -277,12 +287,12 @@
           h("div", null, h("small", null, "A LITTLE SPACE, JUST FOR YOU"), h("h1", null, "把日子，慢慢记下来", h("span", null, "。"))),
           h("div", { className: "today" }, new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }), h("p", null, "留一点时间，给自己"))),
         error && h("p", { className: "error", role: "alert" }, error),
-        h("section", { className: "daily-log", "aria-labelledby": "log-title" },
+        show("log") && h("section", { className: "daily-log", "aria-labelledby": "log-title" },
           h("div", { className: "log-heading" },
             h("div", { className: "log-title-line" }, h("h2", { id: "log-title" }, "流水账"), h("span", null, dayKey().replaceAll("-", " / "))),
-            h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen(true), "aria-label": "全屏书写流水账" }, "⛶ 全屏")),
+            h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen("log"), "aria-label": "全屏书写流水账" }, "⛶ 全屏")),
           logForm(false)),
-        h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
+        tab !== "log" && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
           show("todo") && h("section", { className: "panel tasks", "aria-labelledby": "tasks-title" },
             h("small", null, "01 / TO-DO"), h("h2", { id: "tasks-title" }, "今日待办 ", h("em", null, todos.length - done)),
             h("p", { className: "subtitle" }, "一件一件，慢慢完成。"),
@@ -314,13 +324,12 @@
               h("button", { type: "button", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "我的第一个项目", body: "" }) }, "创建项目 ＋")),
             h("p", { className: "footnote" }, "✧ 每一点进展，都算数。")),
           show("diary") && h("section", { className: "panel journal", "aria-labelledby": "journal-title" },
-            h("small", null, "03 / JOURNAL"), h("h2", { id: "journal-title" }, "日子里的片段"),
+            h("small", null, "03 / JOURNAL"),
+            h("div", { className: "heading paper-heading" }, h("h2", { id: "journal-title" }, "日子里的片段"),
+              h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen("diary"), "aria-label": "全屏书写小纸条" }, "⛶ 全屏")),
             h("p", { className: "subtitle" }, "把此刻的心情，折成一张小纸条。"),
             h(Calendar, { value: day, onChange: setDay, entries: diaries }),
-            h("form", { className: "diary-input", onSubmit: async event => { event.preventDefault(); const text = diary; if (text.trim() && await save("POST", { kind: "diary", body: text.trim(), day })) setDiary(current => current === text ? "" : current); } },
-              h(AutoText, { label: "日记内容", value: diary, onChange: setDiary, placeholder: "今天，有什么想记住的？" }),
-              h("div", { className: "heading" }, h("small", null, `${Array.from(diary).length} 字 · 记于 ${day.slice(5)}`),
-                h("button", { type: "submit", disabled: !ready || busy || !diary.trim() }, "收好 ✓"))),
+            diaryForm(false),
             h("div", { className: "heading diary-heading" }, h("h3", null, "最近的小纸条"),
               h("button", { type: "button", className: "view-all-papers", onClick: () => setArchive("diary") }, `全部 ${diaries.length} 条 ↗`)),
             recent.map(item => h("article", { className: "entry", key: item.id }, h("small", null, `${entryDay(item)} · ${time(item)}`), h("p", null, item.body),
@@ -336,12 +345,12 @@
         h("footer", null, h("i", null, "little days / 日常"), h("span", null, "平凡的一天，也值得被记录。"),
           h("span", { role: "status" }, busy ? "正在保存…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…"))),
       !archive && !fullscreen && undoNotice,
-      fullscreen && h(Modal, { titleId: "writer-title", className: "writer-dialog", onClose: () => setFullscreen(false) },
+      fullscreen && h(Modal, { titleId: "writer-title", className: `writer-dialog ${fullscreen === "diary" ? "paper-writer" : ""}`, onClose: () => setFullscreen(false) },
         undoNotice,
-        h("div", { className: "writer-top" }, h("div", null, h("small", null, "A MOMENT, JUST FOR WRITING"), h("h2", { id: "writer-title" }, "流水账")),
+        h("div", { className: "writer-top" }, h("div", null, h("small", null, "A MOMENT, JUST FOR WRITING"), h("h2", { id: "writer-title" }, fullscreen === "diary" ? "小纸条" : "流水账")),
           h("button", { type: "button", className: "close-button", onClick: () => setFullscreen(false) }, "退出全屏 ×")),
-        h("div", { className: "writer-body" }, h("p", { className: "writer-date" }, fullDate(dayKey())),
-          error && h("p", { className: "error", role: "alert" }, error), logForm(true))),
+        h("div", { className: "writer-body" }, h("p", { className: "writer-date" }, fullDate(fullscreen === "diary" ? day : dayKey())),
+          error && h("p", { className: "error", role: "alert" }, error), fullscreen === "diary" ? diaryForm(true) : logForm(true))),
       archive && h(Archive, { kind: archive, items: visibleItems, busy, error, save, undoNotice, onClose: () => setArchive(null) }));
   }
   createRoot(document.getElementById("root")).render(h(Notebook));

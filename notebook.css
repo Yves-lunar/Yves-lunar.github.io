@@ -131,6 +131,11 @@ footer { margin-top: 30px; }
 .markdown-list-line { display: flex; align-items: baseline; gap: 8px; }
 .project-card .markdown-list-line input { appearance: auto; flex: 0 0 15px; width: 15px; height: 15px; padding: 0; margin: 0; accent-color: #83936d; }
 .archive-entry-actions, .archive-edit-actions { display: flex; align-items: center; gap: 12px; }
+.paper-heading { gap: 12px; }
+.paper-heading .expand-writer { flex: none; border: 0; background: transparent; color: #8c7a98; padding: 6px 0; font-size: 12px; }
+.paper-writer { background: #f6f2f7; color: #7d6c88; }
+.paper-writer .writer-top { background: #f6f2f7; }
+@media (max-width: 640px) { .nav button { padding-left: 10px; padding-right: 10px; white-space: nowrap; } }
 .delete-undo-notices { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 1000; width: min(480px, calc(100% - 32px)); display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; }
 .delete-undo-notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 18px; background: #f4f3eb; color: #686d5c; border: 1px solid #d7ddcd; border-radius: 12px; box-shadow: 0 6px 24px #35412520; font-size: 13px; }
 .delete-undo-notice span { overflow-wrap: anywhere; min-width: 0; }
