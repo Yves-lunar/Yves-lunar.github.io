@@ -8,6 +8,19 @@
   const fullDate = day => new Date(`${day}T12:00:00`).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
   const time = item => new Date(item.created).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 
+  function NavIcon({ kind }) {
+    const paths = {
+      all: "M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9",
+      todo: "M9 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-8M8 11l4 4L21 4",
+      note: "M12 6c-3-2-6-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1v15",
+      diary: "M14 3H5v18h14V8l-5-5v5h5M8 12h8M8 16h5",
+      log: "M6 3h14v18H6V3M3 7h5M3 12h5M3 17h5M11 8h5M11 12h5M11 16h3",
+      tool: "M14 6a5 5 0 0 0-6 6l-5 5a2 2 0 0 0 3 3l5-5a5 5 0 0 0 6-6l-3 3-3-3 3-3Z"
+    };
+    return h("svg", { className: "nav-icon", viewBox: "0 0 24 24", width: 19, height: 19, fill: "none", stroke: "currentColor", strokeWidth: 1.7,
+      strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true, focusable: false }, h("path", { d: paths[kind] }));
+  }
+
   function AutoText({ value, onChange, label, placeholder, className = "", autoFocus = false, disabled = false, editorRef }) {
     const localRef = useRef(null);
     const ref = editorRef || localRef;
@@ -302,7 +315,8 @@
         h("a", { href: "./", className: "brand" }, h("b", null, "✳"), "日常 ", h("i", null, "little days")),
         h("nav", { className: "nav", "data-slot": "tabs-list", "aria-label": "记事本分类" },
           [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"], ["tool", "小工具"]].map(([value, label]) =>
-            h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-pressed": tab === value, onClick: () => setTab(value) }, label))),
+            h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-label": label, title: label,
+              "aria-pressed": tab === value, onClick: () => setTab(value) }, h(NavIcon, { kind: value }), h("span", { className: "nav-label" }, label)))),
         h("span", { className: "private" }, "共享记事本 ", h("b", null, "我"))),
       h("main", null,
         h("div", { className: "intro" },
