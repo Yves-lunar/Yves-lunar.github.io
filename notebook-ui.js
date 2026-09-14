@@ -180,6 +180,7 @@
     const [toolStatus, setToolStatus] = useState("");
     const [fullscreen, setFullscreen] = useState(false);
     const [archive, setArchive] = useState(null);
+    const [selectedTool, setSelectedTool] = useState(null);
     const [showAllProjects, setShowAllProjects] = useState(false);
     const [openProject, setOpenProject] = useState(null);
     const pendingDeletes = useRef([]);
@@ -289,6 +290,7 @@
     const logs = visibleItems.filter(item => item.kind === "log");
     const recent = recentDiaries(visibleItems);
     const toolEntries = visibleItems.filter(item => item.kind === "tool").sort((a, b) => Date.parse(b.created) - Date.parse(a.created) || b.id.localeCompare(a.id));
+    const openedTool = toolEntries.find(item => item.id === selectedTool);
     const undoNotice = deletions.length > 0 && h("div", { className: "delete-undo-notices", "aria-label": "删除撤回", "aria-live": "polite" },
       deletions.map(entry => h("div", { key: entry.id, className: "delete-undo-notice" },
         h("span", null, entry.deleting ? "正在删除…" : `已移除${entry.label}，10 秒内可撤回`),
@@ -319,9 +321,9 @@
             toolForm(false)),
           h("div", { className: "heading" }, h("h3", null, "过去的条目"), h("small", null, `${toolEntries.length} 条`)),
           h("ul", { className: "tools-list", "aria-label": "小工具条目列表" }, toolEntries.map(item =>
-            h("li", { key: item.id }, h("details", { className: "tool-details" },
-              h("summary", null, h("span", null, item.title || item.body.trim().split("\n")[0].slice(0, 40) || "未命名条目"), h("small", null, entryDay(item))),
-              h(ArchiveEntry, { item, day: entryDay(item), editable: true, busy, save }))))),
+            h("li", { key: item.id }, h("button", { type: "button", className: "tool-list-row", onClick: () => setSelectedTool(item.id) },
+              h("strong", null, item.title || item.body.trim().split("\n")[0].slice(0, 40) || "未命名条目"),
+              h("time", { dateTime: entryDay(item) }, entryDay(item)))))),
           !toolEntries.length && h("p", { className: "empty" }, ready ? "还没有条目，在上面写下第一条吧。" : "正在读取…")),
         !["log", "tool"].includes(tab) && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
           show("todo") && h("section", { className: "panel tasks", "aria-labelledby": "tasks-title" },
@@ -375,7 +377,17 @@
               h("span", { className: "archive-icon", "aria-hidden": true }, "▱"), h("span", null, h("strong", null, "小纸条"), h("small", null, `${diaries.length} 段心情`)), h("span", { "aria-hidden": true }, "↗")))),
         h("footer", null, h("i", null, "little days / 日常"), h("span", null, "平凡的一天，也值得被记录。"),
           h("span", { role: "status" }, busy ? "正在保存…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…"))),
-      !archive && !fullscreen && undoNotice,
+      !archive && !fullscreen && !selectedTool && undoNotice,
+      selectedTool && h(Modal, { titleId: "tool-reader-title", className: "archive-dialog tool-reader", onClose: () => setSelectedTool(null) },
+        h("div", { className: "archive-top" }, h("div", { className: "archive-heading" },
+          h("div", null, h("small", null, "小工具"), h("h2", { id: "tool-reader-title" }, openedTool?.title || "小工具条目"),
+            openedTool && h("p", null, fullDate(entryDay(openedTool)))),
+          h("button", { type: "button", className: "close-button", "aria-label": "关闭小工具全文", onClick: () => setSelectedTool(null) }, "关闭 ×"))),
+        undoNotice,
+        error && h("p", { className: "error", role: "alert" }, error),
+        h("div", { className: "archive-scroll" }, openedTool
+          ? h(ArchiveEntry, { key: openedTool.id, item: openedTool, day: entryDay(openedTool), editable: true, busy, save })
+          : h("p", { className: "empty" }, "条目已移除"))),
       fullscreen && h(Modal, { titleId: "writer-title", className: `writer-dialog ${fullscreen === "diary" ? "paper-writer" : ""}`, onClose: () => setFullscreen(false) },
         undoNotice,
         h("div", { className: "writer-top" }, h("div", null, h("small", null, "A MOMENT, JUST FOR WRITING"), h("h2", { id: "writer-title" }, fullscreen === "diary" ? "小纸条" : fullscreen === "tool" ? "小工具" : "流水账")),

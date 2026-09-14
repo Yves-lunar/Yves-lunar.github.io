@@ -144,10 +144,19 @@ footer { margin-top: 30px; }
 .tool-details summary { cursor: pointer; padding: 16px 20px; color: #68775b; overflow-wrap: anywhere; }
 .tool-details summary small { margin-left: 16px; color: #9ba38e; font-size: 11px; white-space: nowrap; }
 .tool-details .archive-entry { border: 0; margin: 0; border-top: 1px solid #e5e8df; border-radius: 0 0 10px 10px; }
-.tools-list > li { margin-bottom: 22px; }
+.tools-list > li { margin-bottom: 0; }
+.tool-list-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 18px 20px; border: 0; text-align: left; color: #58694c; background: #edf1e7; cursor: pointer; }
+.tools-list > li:nth-child(even) .tool-list-row { background: #dfe7d5; }
+.tools-list > li:first-child .tool-list-row { border-radius: 10px 10px 0 0; }
+.tools-list > li:last-child .tool-list-row { border-radius: 0 0 10px 10px; }
+.tool-list-row strong { min-width: 0; overflow-wrap: anywhere; font-size: 15px; font-weight: 700; }
+.tool-list-row time { flex: none; font-size: 12px; color: #839174; white-space: nowrap; }
+.tool-list-row:hover { filter: brightness(.97); }
+.tool-reader .archive-heading > div { min-width: 0; }
+.tool-reader h2 { overflow-wrap: anywhere; }
 .tool-entry-date { font-size: 12px; color: #929888; margin: 0 0 8px; }
 .tools-page > .heading { color: #6d7762; }
-.nav { flex-wrap: wrap; }
+.nav { flex-wrap: nowrap; }
 .paper-heading .expand-writer { flex: none; border: 0; background: transparent; color: #8c7a98; padding: 6px 0; font-size: 12px; }
 .paper-writer { background: #f6f2f7; color: #7d6c88; }
 .paper-writer .writer-top { background: #f6f2f7; }
@@ -176,7 +185,8 @@ footer { margin-top: 30px; }
   .archive-caption { max-width: 220px; }
 }
 @media (max-width: 640px) {
-  .nav button { flex: 1; }
+  .nav { width: 100%; min-width: 0; gap: 1px; box-sizing: border-box; }
+  .nav button { flex: 1 1 0; min-width: 0; padding: 9px 3px; font-size: 12px; }
   .daily-log { padding: 16px 18px 13px; margin-bottom: 24px; }
   .log-title-line { gap: 10px; }
   .log-title-line span { font-size: 9px; letter-spacing: 0; }
