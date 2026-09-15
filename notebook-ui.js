@@ -88,7 +88,7 @@
 
   const ProjectEditor = window.LITTLE_DAYS_PROJECT_EDITOR;
 
-  function Project({ item, index, busy, save, expanded, setExpanded }) {
+  function Project({ item, index, busy, save, expanded, setExpanded, onSaved }) {
     const [title, setTitle] = useState(item.title);
     const [body, setBody] = useState(item.body);
     const titleRef = useRef(null);
@@ -98,7 +98,7 @@
     }, [expanded]);
     const changed = title !== item.title || body !== item.body;
     const detailsId = `project-details-${item.id}`;
-    return h("article", { className: `note project-card color-${index % 3} ${expanded ? "is-expanded" : ""}` },
+    return h("article", { "data-project-id": item.id, className: `note project-card color-${index % 3} ${expanded ? "is-expanded" : ""}` },
       h("button", { type: "button", className: "project-toggle", "aria-expanded": expanded, "aria-controls": detailsId,
         onClick: () => setExpanded(!expanded) },
         h("span", { className: "project-summary-title" }, title || item.title),
@@ -117,7 +117,7 @@
           onClick: async () => {
             if (await save("PATCH", { id: item.id, kind: "note", title: title.trim(), body })) {
               setTitle(current => current === title ? title.trim() : current);
-              setExpanded(false);
+              onSaved();
             }
           } }, changed ? "保存修改 ✓" : "已保存 ✓"))))));
   }
@@ -209,6 +209,39 @@
       if (legacy) { datedTodos.current.add(legacy.id); commit("PATCH", {id: legacy.id, kind: "todo", done: 1}); }
     }, [ready, busy, items]);
     const [openProject, setOpenProject] = useState(null);
+    const [automaticProjects, setAutomaticProjects] = useState(true);
+    const [fittingProjects, setFittingProjects] = useState([]);
+    useEffect(() => {
+      if (!automaticProjects || !ready || !["all", "note"].includes(tab)) return;
+      const panel = document.querySelector('.projects-panel');
+      if (!panel) return;
+      let frame;
+      function measure() {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const list = panel.querySelector('.project-list');
+          const neighbours = [...document.querySelectorAll('.workspace > .tasks, .workspace > .journal')];
+          const target = Math.max(520, ...neighbours.map(node => node.getBoundingClientRect().height));
+          const cards = [...list.querySelectorAll('.project-list-item:not([hidden]) .project-card')];
+          const gap = parseFloat(getComputedStyle(list).gap) || 0;
+          const fixed = panel.getBoundingClientRect().height - list.getBoundingClientRect().height;
+          let remaining = target - fixed - Math.max(0, cards.length - 1) * gap
+            - cards.reduce((sum, card) => sum + card.querySelector('.project-toggle').getBoundingClientRect().height + 12, 0);
+          const next = [];
+          for (const card of cards) {
+            const details = card.querySelector('.project-details');
+            const height = details.scrollHeight;
+            if (height <= remaining) { next.push(card.dataset.projectId); remaining -= height; }
+          }
+          setFittingProjects(previous => previous.join() === next.join() ? previous : next);
+        });
+      }
+      const observer = new ResizeObserver(measure);
+      panel.querySelectorAll('.project-details, .project-toggle').forEach(node => observer.observe(node));
+      document.querySelectorAll('.workspace > .tasks, .workspace > .journal').forEach(node => observer.observe(node));
+      window.addEventListener('resize', measure); measure();
+      return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', measure); };
+    }, [automaticProjects, ready, tab, items, showAllProjects]);
     const pendingDeletes = useRef([]);
     const [deletions, setDeletions] = useState([]);
     function showDeletions() { setDeletions([...pendingDeletes.current]); }
@@ -232,7 +265,7 @@
     }, [ready]);
     useEffect(() => {
       function outside(event) {
-        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) setOpenProject(null);
+        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) { setAutomaticProjects(false); setOpenProject(null); }
       }
       document.addEventListener("pointerdown", outside);
       return () => document.removeEventListener("pointerdown", outside);
@@ -329,7 +362,7 @@
         h("nav", { className: "nav", "data-slot": "tabs-list", "aria-label": "记事本分类" },
           [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"], ["tool", "小工具"]].map(([value, label]) =>
             h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-label": label, title: label,
-              "aria-pressed": tab === value, onClick: () => setTab(value) }, h(NavIcon, { kind: value }), h("span", { className: "nav-label" }, label)))),
+              "aria-pressed": tab === value, onClick: () => { setTab(value); setAutomaticProjects(true); } }, h(NavIcon, { kind: value }), h("span", { className: "nav-label" }, label)))),
         h("span", { className: "private" }, "共享记事本 ", h("b", null, "我"))),
       h("main", null,
         h("div", { className: "intro" },
@@ -376,8 +409,9 @@
             h("p", { className: "subtitle" }, "想法有落点，进展有记录。"),
             h("div", { id: "project-list", className: "project-list" },
               projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !visibleProjects.some(row => row.id === item.id) || (!showAllProjects && visibleProjects.findIndex(row => row.id === item.id) >= 3) },
-                h(Project, { item, index, busy, save, expanded: openProject === item.id,
-                  setExpanded: open => setOpenProject(current => open ? item.id : current === item.id ? null : current) })))),
+                h(Project, { item, index, busy, save, expanded: automaticProjects ? fittingProjects.includes(item.id) : openProject === item.id,
+                  onSaved: () => { setOpenProject(null); setAutomaticProjects(true); },
+                  setExpanded: open => { setAutomaticProjects(false); setOpenProject(current => open ? item.id : current === item.id ? null : current); } })))),
             visibleProjects.length > 3 && h("button", { type: "button", className: `project-overflow ${showAllProjects ? "showing-all" : ""}`,
               "aria-expanded": showAllProjects, "aria-controls": "project-list", onClick: () => setShowAllProjects(!showAllProjects) },
               h("span", null, showAllProjects ? "收起其余项目" : `还有 ${visibleProjects.length - 3} 个项目，点击展开`),
