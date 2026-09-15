@@ -47,7 +47,10 @@
     }
     return { text: text.slice(0, start) + replacement + text.slice(end), start, end: start + replacement.length };
   }
-  const model = Object.freeze({ dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, formatSelection });
+  function activeTodos(items, now = Date.now()) {
+    return newest(items.filter(item => item.kind === "todo" && (!item.done || !Number.isFinite(Date.parse(item.completedAt)) || now - Date.parse(item.completedAt) < 48 * 60 * 60 * 1000)));
+  }
+  const model = Object.freeze({ dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, formatSelection, activeTodos });
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.LITTLE_DAYS_MODEL = model;
 })(typeof window === "undefined" ? globalThis : window);

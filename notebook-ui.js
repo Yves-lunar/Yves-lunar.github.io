@@ -3,7 +3,7 @@
   const { React, createRoot } = window.LITTLE_DAYS_RUNTIME;
   const { useState, useEffect, useLayoutEffect, useRef } = React;
   const h = React.createElement;
-  const { dayKey, entryDay, recentDiaries, archiveGroups, recentProjects } = window.LITTLE_DAYS_MODEL;
+  const { dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, activeTodos } = window.LITTLE_DAYS_MODEL;
   const store = window.LITTLE_DAYS_STORE;
   const fullDate = day => new Date(`${day}T12:00:00`).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
   const time = item => new Date(item.created).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
@@ -195,6 +195,19 @@
     const [archive, setArchive] = useState(null);
     const [selectedTool, setSelectedTool] = useState(null);
     const [showAllProjects, setShowAllProjects] = useState(false);
+    const [showAllTodos, setShowAllTodos] = useState(false);
+    const [todoClock, setTodoClock] = useState(Date.now());
+    const datedTodos = useRef(new Set());
+    useEffect(() => {
+      const timer = setInterval(() => setTodoClock(Date.now()), 60000);
+      return () => clearInterval(timer);
+    }, []);
+    useEffect(() => {
+      if (!ready || busy) return;
+      // Older completed records have no completion date: give them a fresh grace period.
+      const legacy = items.find(item => item.kind === "todo" && item.done && !item.completedAt && !datedTodos.current.has(item.id));
+      if (legacy) { datedTodos.current.add(legacy.id); commit("PATCH", {id: legacy.id, kind: "todo", done: 1}); }
+    }, [ready, busy, items]);
     const [openProject, setOpenProject] = useState(null);
     const pendingDeletes = useRef([]);
     const [deletions, setDeletions] = useState([]);
@@ -295,7 +308,7 @@
           h("small", null, `${Array.from(diary).length} 字 · 记于 ${day}`),
           h("button", { type: "submit", disabled: !ready || busy || !diary.trim() }, busy ? "正在保存…" : "收好 ✓")));
     }
-    const todos = items.filter(item => item.kind === "todo");
+    const todos = activeTodos(items, todoClock);
     const visibleItems = items.filter(item => !deletions.some(row => row.id === item.id));
     const projects = recentProjects(items);
     const visibleProjects = recentProjects(visibleItems);
@@ -340,16 +353,18 @@
               h("time", { dateTime: entryDay(item) }, entryDay(item)))))),
           !toolEntries.length && h("p", { className: "empty" }, ready ? "还没有条目，在上面写下第一条吧。" : "正在读取…")),
         !["log", "tool"].includes(tab) && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
-          show("todo") && h("section", { className: "panel tasks", "aria-labelledby": "tasks-title" },
+          show("todo") && h("section", { className: `panel tasks ${showAllTodos ? "todos-expanded" : ""}`, "aria-labelledby": "tasks-title" },
             h("small", null, "01 / TO-DO"), h("h2", { id: "tasks-title" }, "今日待办 ", h("em", null, todos.length - done)),
             h("p", { className: "subtitle" }, "一件一件，慢慢完成。"),
             h("div", { className: "progress" }, h("span", { style: { width: `${todos.length ? done / todos.length * 100 : 0}%` } })),
             h("p", { className: "meta right" }, `已完成 ${done} / ${todos.length}`),
-            h("div", { className: "task-list" }, todos.map(item => h("div", { className: `task ${item.done ? "done" : ""}`, key: item.id },
+            h("div", { className: "task-list", id: "todo-list" }, (showAllTodos ? todos : todos.slice(0, 4)).map(item => h("div", { className: `task ${item.done ? "done" : ""}`, key: item.id },
               h("input", { type: "checkbox", className: "task-check", "aria-label": `完成 ${item.title}`, checked: !!item.done, disabled: busy,
-                onChange: event => save("PATCH", { id: item.id, done: +event.target.checked }) }),
-              h("span", null, item.title), h("button", { type: "button", className: "delete", "aria-label": `删除待办 ${item.title}`, disabled: busy, onClick: () => save("DELETE", { id: item.id }) }, "×"))),
+                onChange: event => save("PATCH", { id: item.id, kind: "todo", done: +event.target.checked }) }),
+              h("span", { title: item.title }, item.title), h("button", { type: "button", className: "delete", "aria-label": `删除待办 ${item.title}`, disabled: busy, onClick: () => save("DELETE", { id: item.id }) }, "×"))),
               !todos.length && h("p", { className: "empty" }, ready ? "还没有待办。写下想做的第一件小事吧。" : "正在读取…")),
+            todos.length > 4 && h("button", { type: "button", className: `project-overflow todo-overflow ${showAllTodos ? "showing-all" : ""}`, "aria-expanded": showAllTodos, "aria-controls": "todo-list", onClick: () => setShowAllTodos(!showAllTodos) },
+              h("span", null, showAllTodos ? "收起其余待办" : `还有 ${todos.length - 4} 条待办，点击展开`), h("span", { className: `date-chevron ${showAllTodos ? "open" : ""}`, "aria-hidden": true }, "⌄")),
             h("form", { className: "todo-input", onSubmit: async event => { event.preventDefault(); const text = todo; if (text.trim() && await save("POST", { kind: "todo", title: text.trim() })) setTodo(current => current === text ? "" : current); } },
               h("input", { "aria-label": "新待办事项", placeholder: "添加一件小事…", value: todo, maxLength: 300, onChange: e => setTodo(e.target.value) }),
               h("button", { type: "submit", disabled: !ready || busy || !todo.trim(), "aria-label": "添加待办" }, "＋")),

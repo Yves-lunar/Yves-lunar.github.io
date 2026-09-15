@@ -9,6 +9,10 @@ button { cursor: pointer; }
 button:disabled { cursor: default; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #8a9b7d; outline-offset: 4px; }
 .workspace > section { min-width: 0; margin-top: 0; }
+.tasks .task { padding-top: 10px; padding-bottom: 10px; }
+.tasks .task > span { overflow-wrap: anywhere; }
+.tasks .task-list { min-height: 0; }
+.tasks .todo-overflow { margin-top: 4px; padding: 10px 8px; }
 .projects-panel { padding: 25px; background: #fbf8f0; border: 1px solid #eae4d5; }
 .project-heading { position: relative; align-items: baseline; }
 .project-heading .soft { padding: 5px 8px; font-size: 12px; }

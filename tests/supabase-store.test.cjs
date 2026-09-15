@@ -76,10 +76,13 @@ test('two visitors share todo, note and diary CRUD without login', async () => {
   assert.equal(diary.day, '2026-09-09');
   assert.equal(todo.day, '');
   assert.ok(Number.isFinite(Date.parse(diary.created)));
-  await b.store.mutate('PATCH', { id:todo.id, done:1 });
+  await b.store.mutate('PATCH', { id:todo.id, kind:'todo', done:1 });
   await b.store.mutate('PATCH', { id:note.id, title:'项目', body:'二稿', created:'forged' });
   const loaded = await a.store.list();
   assert.equal(loaded.find(row => row.id === todo.id).done, 1);
+  assert.ok(Number.isFinite(Date.parse(loaded.find(row => row.id === todo.id).completedAt)));
+  await b.store.mutate('PATCH', {id:todo.id,kind:'todo',done:0});
+  assert.equal((await a.store.list()).find(row=>row.id===todo.id).completedAt,'');
   assert.equal(loaded.find(row => row.id === note.id).body, '二稿');
   assert.equal(remote.get(note.id).created, note.created);
   await b.store.mutate('DELETE', { id:diary.id });

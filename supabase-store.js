@@ -62,6 +62,7 @@
     return {
       id: row.id, kind: isTool ? "tool" : isLog ? "log" : row.kind, title: isTool ? toolName : isLog ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
       updated: project ? project[1] : row.created,
+      completedAt: row.kind === "todo" && row.done && (row.body || "").startsWith("__todo_completed__:") ? row.body.slice(19) : "",
       day: row.day || "", done: row.done ? 1 : 0, created: row.created
     };
   }
@@ -98,6 +99,7 @@
       result.day = input.day || null;
     }
     if (input.done !== undefined) result.done = !!input.done;
+    if (input.kind === "todo" && input.done !== undefined) result.body = input.done ? "__todo_completed__:" + new Date().toISOString() : "";
     if (input.kind === "tool" && input.title !== undefined) {
       if (!input.title.trim() || input.title.trim().length > 200) throw { code: "INVALID_INPUT" };
       result.title = toolTitle + ":" + input.title.trim();

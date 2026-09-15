@@ -2,6 +2,17 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {dayKey, archiveGroups, recentDiaries} = require('../notebook-model.js');
 const {recentProjects, formatSelection} = require('../notebook-model.js');
+test('todos sort newest first and hide only completions at least 48 hours old', () => {
+  const {activeTodos} = require('../notebook-model.js');
+  const now = Date.parse('2026-09-15T12:00:00Z');
+  const rows = [
+    {id:'old',kind:'todo',created:'2026-01-01',done:0},
+    {id:'expired',kind:'todo',created:'2026-09-14',done:1,completedAt:'2026-09-13T12:00:00Z'},
+    {id:'recent',kind:'todo',created:'2026-09-15',done:1,completedAt:'2026-09-13T12:00:01Z'},
+    {id:'legacy',kind:'todo',created:'2026-09-10',done:1}
+  ];
+  assert.deepEqual(activeTodos(rows,now).map(row=>row.id),['recent','legacy','old']);
+});
 
 test('projects sort by latest saved edit with creation fallback without changing other entries', () => {
   const items = [{id:'old',kind:'note',created:'2026-09-01',updated:'2026-09-10'},
