@@ -98,7 +98,7 @@
     }, [expanded]);
     const changed = title !== item.title || body !== item.body;
     const detailsId = `project-details-${item.id}`;
-    return h("article", { "data-project-id": item.id, className: `note project-card color-${index % 3} ${expanded ? "is-expanded" : ""}` },
+    return h("article", { "data-project-id": item.id, onInputCapture: () => setExpanded(true), className: `note project-card color-${index % 3} ${expanded ? "is-expanded" : ""}` },
       h("button", { type: "button", className: "project-toggle", "aria-expanded": expanded, "aria-controls": detailsId,
         onClick: () => setExpanded(!expanded) },
         h("span", { className: "project-summary-title" }, title || item.title),

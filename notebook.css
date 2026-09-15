@@ -18,7 +18,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .project-heading .soft { padding: 5px 8px; font-size: 12px; }
 .projects-panel .note { padding: 18px; }
 .projects-panel .note:last-of-type { margin-bottom: 0; }
-.projects-panel .note-title { font-size: 20px; }
+.projects-panel .note-title { font-size: 20px; margin: 4px 0 8px; padding-bottom: 8px; }
+.project-details .note-bottom { margin-top: 10px; }
 .projects-panel .note-empty { min-height: 245px; padding: 28px 12px; }
 .projects-panel .note-empty h3 { font-size: 19px; }
 .projects-panel .footnote { margin-top: 24px; }
@@ -33,7 +34,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .project-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .22s ease, opacity .18s ease, visibility .22s; }
 .is-expanded > .project-collapse { grid-template-rows: 1fr; opacity: 1; visibility: visible; }
 .project-collapse-inner { min-height: 0; overflow: hidden; }
-.rich-project-body { min-height: 110px; padding: 12px 0; font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+.rich-project-body { min-height: 70px; padding: 8px 0; font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
 .rich-project-body:focus { box-shadow: inset 0 -1px #879773; }
 .rich-project-body:empty:before { content: attr(data-placeholder); color: #aaa58f; pointer-events: none; }
 .rich-project-body p { margin: 0; }
