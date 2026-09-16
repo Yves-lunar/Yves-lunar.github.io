@@ -26,6 +26,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .projects-panel .project-card { padding: 0; margin-bottom: 0; overflow: hidden; }
 .project-list-item { margin-bottom: 12px; }
 .project-list-item[hidden] { display: none; }
+.project-list { position: relative; overflow: hidden; }
+.project-list-content { display: flow-root; }
+.project-list.is-clipped { mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); }
+.projects-panel .projects-overflow { height: 40px; padding: 8px; }
+.projects-panel .projects-overflow::before { display: none; }
 .project-toggle { display: flex; align-items: center; gap: 9px; width: 100%; padding: 17px 18px; border: 0; background: transparent; color: #74694f; text-align: left; }
 .project-summary-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 550; }
 .project-toggle .date-chevron { flex: none; color: #a59a7e; }

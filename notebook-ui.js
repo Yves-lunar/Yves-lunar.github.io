@@ -88,13 +88,13 @@
 
   const ProjectEditor = window.LITTLE_DAYS_PROJECT_EDITOR;
 
-  function Project({ item, index, busy, save, expanded, setExpanded, onSaved }) {
+  function Project({ item, index, busy, save, expanded, setExpanded, onSaved, manual }) {
     const [title, setTitle] = useState(item.title);
     const [body, setBody] = useState(item.body);
     const titleRef = useRef(null);
     const defaultTitle = ["新的项目", "新建项目", "我的第一个项目"].includes(title);
     useLayoutEffect(() => {
-      if (expanded && defaultTitle) { titleRef.current?.focus(); titleRef.current?.select(); }
+      if (expanded && manual && defaultTitle) { titleRef.current?.focus(); titleRef.current?.select(); }
     }, [expanded]);
     const changed = title !== item.title || body !== item.body;
     const detailsId = `project-details-${item.id}`;
@@ -210,9 +210,9 @@
     }, [ready, busy, items]);
     const [openProject, setOpenProject] = useState(null);
     const [automaticProjects, setAutomaticProjects] = useState(true);
-    const [fittingProjects, setFittingProjects] = useState([]);
+    const [projectLimit, setProjectLimit] = useState({ height: 320, overflow: false });
     useEffect(() => {
-      if (!automaticProjects || !ready || !["all", "note"].includes(tab)) return;
+      if (!ready || !["all", "note"].includes(tab)) return;
       const panel = document.querySelector('.projects-panel');
       if (!panel) return;
       let frame;
@@ -220,28 +220,26 @@
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           const list = panel.querySelector('.project-list');
+          const content = panel.querySelector('.project-list-content');
           const neighbours = [...document.querySelectorAll('.workspace > .tasks, .workspace > .journal')];
           const target = Math.max(520, ...neighbours.map(node => node.getBoundingClientRect().height));
-          const cards = [...list.querySelectorAll('.project-list-item:not([hidden]) .project-card')];
-          const gap = parseFloat(getComputedStyle(list).gap) || 0;
-          const fixed = panel.getBoundingClientRect().height - list.getBoundingClientRect().height;
-          let remaining = target - fixed - Math.max(0, cards.length - 1) * gap
-            - cards.reduce((sum, card) => sum + card.querySelector('.project-toggle').getBoundingClientRect().height + 12, 0);
-          const next = [];
-          for (const card of cards) {
-            const details = card.querySelector('.project-details');
-            const height = details.scrollHeight;
-            if (height <= remaining) { next.push(card.dataset.projectId); remaining -= height; }
-          }
-          setFittingProjects(previous => previous.join() === next.join() ? previous : next);
+          const button = panel.querySelector('.projects-overflow');
+          // Measure panel chrome independently of the current list viewport and disclosure.
+          const fixed = panel.getBoundingClientRect().height - list.getBoundingClientRect().height
+            - (button?.getBoundingClientRect().height || 0);
+          const available = Math.max(160, target - fixed);
+          const overflow = content.getBoundingClientRect().height > available + 1;
+          const height = Math.floor(available - (overflow ? 40 : 0));
+          setProjectLimit(previous => previous.height === height && previous.overflow === overflow
+            ? previous : { height, overflow });
         });
       }
       const observer = new ResizeObserver(measure);
-      panel.querySelectorAll('.project-details, .project-toggle').forEach(node => observer.observe(node));
+      panel.querySelectorAll('.project-list-content, .project-toggle').forEach(node => observer.observe(node));
       document.querySelectorAll('.workspace > .tasks, .workspace > .journal').forEach(node => observer.observe(node));
       window.addEventListener('resize', measure); measure();
       return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', measure); };
-    }, [automaticProjects, ready, tab, items, showAllProjects]);
+    }, [ready, tab, items]);
     const pendingDeletes = useRef([]);
     const [deletions, setDeletions] = useState([]);
     function showDeletions() { setDeletions([...pendingDeletes.current]); }
@@ -265,7 +263,7 @@
     }, [ready]);
     useEffect(() => {
       function outside(event) {
-        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) { setAutomaticProjects(false); setOpenProject(null); }
+        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) { setAutomaticProjects(true); setOpenProject(null); setShowAllProjects(false); }
       }
       document.addEventListener("pointerdown", outside);
       return () => document.removeEventListener("pointerdown", outside);
@@ -407,14 +405,17 @@
             h("div", { className: "heading project-heading" }, h("h2", { id: "projects-title" }, "正在进行"),
               h("button", { type: "button", className: "soft", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "新的项目", body: "" }) }, "＋ 新项目")),
             h("p", { className: "subtitle" }, "想法有落点，进展有记录。"),
-            h("div", { id: "project-list", className: "project-list" },
-              projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !visibleProjects.some(row => row.id === item.id) || (!showAllProjects && visibleProjects.findIndex(row => row.id === item.id) >= 3) },
-                h(Project, { item, index, busy, save, expanded: automaticProjects ? fittingProjects.includes(item.id) : openProject === item.id,
-                  onSaved: () => { setOpenProject(null); setAutomaticProjects(true); },
-                  setExpanded: open => { setAutomaticProjects(false); setOpenProject(current => open ? item.id : current === item.id ? null : current); } })))),
-            visibleProjects.length > 3 && h("button", { type: "button", className: `project-overflow ${showAllProjects ? "showing-all" : ""}`,
+            h("div", { id: "project-list", className: `project-list ${automaticProjects && !showAllProjects && projectLimit.overflow ? "is-clipped" : ""}`,
+                style: automaticProjects && !showAllProjects ? { maxHeight: projectLimit.height } : undefined,
+                onFocusCapture: () => setShowAllProjects(true) },
+                h("div", { className: "project-list-content" },
+              projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !visibleProjects.some(row => row.id === item.id) },
+                h(Project, { item, index, busy, save, manual: !automaticProjects, expanded: automaticProjects || openProject === item.id,
+                  onSaved: () => { setOpenProject(null); setAutomaticProjects(true); setShowAllProjects(false); },
+                  setExpanded: open => { setAutomaticProjects(false); setOpenProject(current => open ? item.id : current === item.id ? null : current); } }))))),
+            automaticProjects && projectLimit.overflow && h("button", { type: "button", className: `project-overflow projects-overflow ${showAllProjects ? "showing-all" : ""}`,
               "aria-expanded": showAllProjects, "aria-controls": "project-list", onClick: () => setShowAllProjects(!showAllProjects) },
-              h("span", null, showAllProjects ? "收起其余项目" : `还有 ${visibleProjects.length - 3} 个项目，点击展开`),
+              h("span", null, showAllProjects ? "收起超出部分" : "展开剩余内容"),
               h("span", { className: `date-chevron ${showAllProjects ? "open" : ""}`, "aria-hidden": true }, "⌄")),
             !visibleProjects.length && h("div", { className: "note-empty" }, h("span", null, "↗"), h("h3", null, "让想法从这里开始"), h("p", null, "添加一个项目，随时写下新的进展。"),
               h("button", { type: "button", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "我的第一个项目", body: "" }) }, "创建项目 ＋")),
