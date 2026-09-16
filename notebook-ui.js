@@ -88,13 +88,13 @@
 
   const ProjectEditor = window.LITTLE_DAYS_PROJECT_EDITOR;
 
-  function Project({ item, index, busy, save, expanded, setExpanded, onSaved, manual }) {
+  function Project({ item, index, busy, save, expanded, setExpanded, onSaved }) {
     const [title, setTitle] = useState(item.title);
     const [body, setBody] = useState(item.body);
     const titleRef = useRef(null);
     const defaultTitle = ["新的项目", "新建项目", "我的第一个项目"].includes(title);
     useLayoutEffect(() => {
-      if (expanded && manual && defaultTitle) { titleRef.current?.focus(); titleRef.current?.select(); }
+      if (expanded && defaultTitle) { titleRef.current?.focus(); titleRef.current?.select(); }
     }, [expanded]);
     const changed = title !== item.title || body !== item.body;
     const detailsId = `project-details-${item.id}`;
@@ -209,7 +209,6 @@
       if (legacy) { datedTodos.current.add(legacy.id); commit("PATCH", {id: legacy.id, kind: "todo", done: 1}); }
     }, [ready, busy, items]);
     const [openProject, setOpenProject] = useState(null);
-    const [automaticProjects, setAutomaticProjects] = useState(true);
     const [projectLimit, setProjectLimit] = useState({ height: 320, overflow: false });
     useEffect(() => {
       if (!ready || !["all", "note"].includes(tab)) return;
@@ -222,13 +221,18 @@
           const list = panel.querySelector('.project-list');
           const content = panel.querySelector('.project-list-content');
           const neighbours = [...document.querySelectorAll('.workspace > .tasks, .workspace > .journal')];
-          const target = Math.max(520, ...neighbours.map(node => node.getBoundingClientRect().height));
+          const target = neighbours.length ? Math.max(...neighbours.map(node => node.getBoundingClientRect().height)) : 520;
           const button = panel.querySelector('.projects-overflow');
           // Measure panel chrome independently of the current list viewport and disclosure.
           const fixed = panel.getBoundingClientRect().height - list.getBoundingClientRect().height
             - (button?.getBoundingClientRect().height || 0);
           const available = Math.max(160, target - fixed);
-          const overflow = content.getBoundingClientRect().height > available + 1;
+          // Only title rows count toward overflow, never an opened project's body.
+          const collapsedHeight = [...content.querySelectorAll('.project-list-item:not([hidden])')]
+            .reduce((sum, row) => sum + row.getBoundingClientRect().height
+              - row.querySelector('.project-collapse').getBoundingClientRect().height
+              + (parseFloat(getComputedStyle(row).marginBottom) || 0), 0);
+          const overflow = collapsedHeight > available + 1;
           const height = Math.floor(available - (overflow ? 40 : 0));
           setProjectLimit(previous => previous.height === height && previous.overflow === overflow
             ? previous : { height, overflow });
@@ -263,7 +267,7 @@
     }, [ready]);
     useEffect(() => {
       function outside(event) {
-        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) { setAutomaticProjects(true); setOpenProject(null); setShowAllProjects(false); }
+        if (!event.target.closest('.project-card, .project-overflow, button, input, textarea, select, a, dialog, [contenteditable="true"]')) { setOpenProject(null); setShowAllProjects(false); }
       }
       document.addEventListener("pointerdown", outside);
       return () => document.removeEventListener("pointerdown", outside);
@@ -360,7 +364,7 @@
         h("nav", { className: "nav", "data-slot": "tabs-list", "aria-label": "记事本分类" },
           [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"], ["tool", "小工具"]].map(([value, label]) =>
             h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-label": label, title: label,
-              "aria-pressed": tab === value, onClick: () => { setTab(value); setAutomaticProjects(true); } }, h(NavIcon, { kind: value }), h("span", { className: "nav-label" }, label)))),
+              "aria-pressed": tab === value, onClick: () => { setTab(value); setOpenProject(null); setShowAllProjects(false); } }, h(NavIcon, { kind: value }), h("span", { className: "nav-label" }, label)))),
         h("span", { className: "private" }, "共享记事本 ", h("b", null, "我"))),
       h("main", null,
         h("div", { className: "intro" },
@@ -405,17 +409,20 @@
             h("div", { className: "heading project-heading" }, h("h2", { id: "projects-title" }, "正在进行"),
               h("button", { type: "button", className: "soft", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "新的项目", body: "" }) }, "＋ 新项目")),
             h("p", { className: "subtitle" }, "想法有落点，进展有记录。"),
-            h("div", { id: "project-list", className: `project-list ${automaticProjects && !showAllProjects && projectLimit.overflow ? "is-clipped" : ""}`,
-                style: automaticProjects && !showAllProjects ? { maxHeight: projectLimit.height } : undefined,
-                onFocusCapture: () => setShowAllProjects(true) },
+            h("div", { id: "project-list", className: `project-list ${!openProject && !showAllProjects && projectLimit.overflow ? "is-clipped" : ""}`,
+                style: !openProject && !showAllProjects ? { maxHeight: projectLimit.height } : undefined,
+                onFocusCapture: event => {
+                  if (event.target.getBoundingClientRect().bottom > event.currentTarget.getBoundingClientRect().bottom)
+                    setShowAllProjects(true);
+                } },
                 h("div", { className: "project-list-content" },
               projects.map((item, index) => h("div", { key: item.id, className: "project-list-item", hidden: !visibleProjects.some(row => row.id === item.id) },
-                h(Project, { item, index, busy, save, manual: !automaticProjects, expanded: automaticProjects || openProject === item.id,
-                  onSaved: () => { setOpenProject(null); setAutomaticProjects(true); setShowAllProjects(false); },
-                  setExpanded: open => { setAutomaticProjects(false); setOpenProject(current => open ? item.id : current === item.id ? null : current); } }))))),
-            automaticProjects && projectLimit.overflow && h("button", { type: "button", className: `project-overflow projects-overflow ${showAllProjects ? "showing-all" : ""}`,
+                h(Project, { item, index, busy, save, expanded: openProject === item.id,
+                  onSaved: () => { setOpenProject(null); setShowAllProjects(false); },
+                  setExpanded: open => { setOpenProject(current => open ? item.id : current === item.id ? null : current); } }))))),
+            !openProject && projectLimit.overflow && h("button", { type: "button", className: `project-overflow projects-overflow ${showAllProjects ? "showing-all" : ""}`,
               "aria-expanded": showAllProjects, "aria-controls": "project-list", onClick: () => setShowAllProjects(!showAllProjects) },
-              h("span", null, showAllProjects ? "收起超出部分" : "展开剩余内容"),
+              h("span", null, showAllProjects ? "收起超出部分" : "展开剩余项目"),
               h("span", { className: `date-chevron ${showAllProjects ? "open" : ""}`, "aria-hidden": true }, "⌄")),
             !visibleProjects.length && h("div", { className: "note-empty" }, h("span", null, "↗"), h("h3", null, "让想法从这里开始"), h("p", null, "添加一个项目，随时写下新的进展。"),
               h("button", { type: "button", disabled: !ready || busy, onClick: () => save("POST", { kind: "note", title: "我的第一个项目", body: "" }) }, "创建项目 ＋")),
