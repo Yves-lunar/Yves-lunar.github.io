@@ -92,6 +92,14 @@
     const [title, setTitle] = useState(item.title);
     const [body, setBody] = useState(item.body);
     const titleRef = useRef(null);
+    const lastRemote = useRef(item);
+    useEffect(() => {
+      const previous = lastRemote.current;
+      // Refresh saved text without replacing a local draft.
+      setTitle(current => current === previous.title ? item.title : current);
+      setBody(current => current === previous.body ? item.body : current);
+      lastRemote.current = item;
+    }, [item.title, item.body]);
     const defaultTitle = ["新的项目", "新建项目", "我的第一个项目"].includes(title);
     useLayoutEffect(() => {
       if (expanded && defaultTitle) { titleRef.current?.focus(); titleRef.current?.select(); }
@@ -272,11 +280,46 @@
       document.addEventListener("pointerdown", outside);
       return () => document.removeEventListener("pointerdown", outside);
     }, []);
+    const syncRevision = useRef(0);
+    const [refreshing, setRefreshing] = useState(false);
     useEffect(() => {
-      let active = true;
-      store.list().then(data => { if (active) { setItems(data); setReady(true); } })
-        .catch(err => { if (active) setError(store.errorMessage(err)); });
-      return () => { active = false; };
+      let active = true, loading = false, retry = false;
+      async function refresh() {
+        if (!active || document.visibilityState === "hidden") return;
+        if (loading || saving.current) { retry = true; return; }
+        retry = false;
+        loading = true;
+        const revision = syncRevision.current;
+        setRefreshing(true);
+        try {
+          const data = await store.list();
+          if (!active) return;
+          // A read started before a local save must never overwrite that save.
+          if (revision !== syncRevision.current || saving.current) { retry = true; return; }
+          setItems(data); setReady(true); setError("");
+        } catch (err) {
+          if (active && revision === syncRevision.current) setError(store.errorMessage(err));
+        } finally {
+          loading = false;
+          if (active) setRefreshing(false);
+        }
+      }
+      const resume = () => { retry = true; refresh(); };
+      window.addEventListener("pageshow", resume);
+      window.addEventListener("focus", resume);
+      window.addEventListener("online", resume);
+      document.addEventListener("visibilitychange", resume);
+      const retryTimer = setInterval(() => { if (retry) refresh(); }, 1000);
+      const syncTimer = setInterval(refresh, 60000);
+      refresh();
+      return () => {
+        active = false;
+        clearInterval(retryTimer); clearInterval(syncTimer);
+        window.removeEventListener("pageshow", resume);
+        window.removeEventListener("focus", resume);
+        window.removeEventListener("online", resume);
+        document.removeEventListener("visibilitychange", resume);
+      };
     }, []);
     async function save(method, input) {
       const item = items.find(row => row.id === input.id);
@@ -292,6 +335,7 @@
     }
     async function commit(method, input) {
       if (!ready || saving.current) return false;
+      syncRevision.current++;
       saving.current = true;
       setBusy(true); setError("");
       try {
@@ -447,7 +491,7 @@
             h("button", { type: "button", className: "archive-launch paper-launch", onClick: () => setArchive("diary") },
               h("span", { className: "archive-icon", "aria-hidden": true }, "▱"), h("span", null, h("strong", null, "小纸条"), h("small", null, `${diaries.length} 段心情`)), h("span", { "aria-hidden": true }, "↗")))),
         h("footer", null, h("i", null, "little days / 日常"), h("span", null, "平凡的一天，也值得被记录。"),
-          h("span", { role: "status" }, busy ? "正在保存…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…"))),
+          h("span", { role: "status" }, busy ? "正在保存…" : refreshing ? "正在同步最新内容…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…"))),
       !archive && !fullscreen && !selectedTool && undoNotice,
       selectedTool && h(Modal, { titleId: "tool-reader-title", className: "archive-dialog tool-reader", onClose: () => setSelectedTool(null) },
         h("div", { className: "archive-top" }, h("div", { className: "archive-heading" },
