@@ -155,15 +155,87 @@
         : h("p", null, item.body));
   }
 
+  function ArchiveDates({ groups, activeDay, kind, onSelect }) {
+    const [open, setOpen] = useState(false);
+    const [limit, setLimit] = useState(10);
+    const [month, setMonth] = useState(() => new Date(`${activeDay.slice(0, 7)}-01T12:00:00`));
+    const root = useRef(null);
+    const row = useRef(null);
+    const toggle = useRef(null);
+    const calendar = useRef(null);
+    const label = kind === "log" ? "流水账" : "小纸条";
+    const calendarId = `${kind}-archive-calendar`;
+    const recordedDays = new Set(groups.map(group => group.day));
+    const activeIndex = groups.findIndex(group => group.day === activeDay);
+    const start = activeIndex < limit ? 0 : Math.min(activeIndex, Math.max(0, groups.length - limit));
+    const visible = groups.slice(start, start + limit);
+    const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const offset = (month.getDay() + 6) % 7;
+    useLayoutEffect(() => {
+      const resize = () => setLimit(Math.max(3, Math.min(10, Math.floor((row.current.clientWidth - 66) / 88))));
+      resize();
+      const observer = new ResizeObserver(resize);
+      observer.observe(row.current);
+      return () => observer.disconnect();
+    }, []);
+    useLayoutEffect(() => {
+      if (open) (calendar.current.querySelector('[aria-pressed="true"]') || calendar.current.querySelector(".archive-calendar-day.has") || calendar.current.querySelector(".archive-calendar-day"))?.focus();
+    }, [open]);
+    useEffect(() => {
+      if (!open) return;
+      const dismiss = event => { if (!root.current.contains(event.target)) setOpen(false); };
+      document.addEventListener("pointerdown", dismiss);
+      return () => document.removeEventListener("pointerdown", dismiss);
+    }, [open]);
+    function select(day) { setOpen(false); toggle.current.focus(); onSelect(day); }
+    return h("div", { className: "archive-date-picker", ref: root,
+      onKeyDown: event => {
+        if (open && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setOpen(false); toggle.current.focus(); }
+      } },
+      h("nav", { className: "archive-dates", ref: row, "aria-label": `${label}日期选择` },
+        visible.map(group => h("button", { type: "button", className: "archive-date", key: group.day,
+          "aria-label": fullDate(group.day), "aria-pressed": activeDay === group.day, onClick: () => { setOpen(false); onSelect(group.day); } },
+          h("span", null, group.day.slice(0, 4)), h("strong", null, group.day.slice(5).replace("-", " / ")))),
+        h("button", { type: "button", className: "archive-calendar-toggle", ref: toggle,
+          "aria-label": `更多${label}日期`, "aria-expanded": open, "aria-haspopup": "dialog", "aria-controls": calendarId,
+          onClick: () => {
+            if (!open) setMonth(new Date(`${activeDay.slice(0, 7)}-01T12:00:00`));
+            setOpen(!open);
+          } },
+          h("svg", { viewBox: "0 0 24 24", width: 20, height: 20, fill: "none", stroke: "currentColor", strokeWidth: 1.5,
+            strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+            h("rect", { x: 3, y: 5, width: 18, height: 16, rx: 3 }), h("path", { d: "M7 3v4m10-4v4M3 11h18m-14 5h.01M12 16h.01M17 16h.01" })),
+          h("span", null, "更多日期"))),
+      open && h("div", { className: "archive-calendar", ref: calendar, id: calendarId, role: "dialog", "aria-label": `${label}日历` },
+        h("div", { className: "archive-calendar-heading" },
+          h("strong", { "aria-live": "polite" }, `${month.getFullYear()} 年 ${month.getMonth() + 1} 月`),
+          h("div", null,
+            h("button", { type: "button", "aria-label": "上个月", onClick: () => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1)) }, "‹"),
+            h("button", { type: "button", "aria-label": "下个月", onClick: () => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1)) }, "›"))),
+        h("div", { className: "archive-calendar-grid", role: "group", "aria-label": "选择日期" },
+          [..."一二三四五六日"].map(day => h("span", { key: day }, day)),
+          Array.from({ length: offset }, (_, index) => h("span", { key: `blank-${index}`, "aria-hidden": true })),
+          Array.from({ length: count }, (_, index) => {
+            const day = dayKey(new Date(month.getFullYear(), month.getMonth(), index + 1));
+            const has = recordedDays.has(day);
+            return h("button", { type: "button", key: day, "aria-label": `${fullDate(day)}${has ? `，有${label}` : "，无记录"}`,
+              "aria-pressed": day === activeDay, "aria-current": day === dayKey() ? "date" : undefined,
+              className: `archive-calendar-day${has ? " has" : ""}`, onClick: () => select(day) }, index + 1);
+          })),
+        h("div", { className: "archive-calendar-legend" }, h("span", null, "深色日期有记录"),
+          h("button", { type: "button", onClick: () => select(dayKey()) }, "今天"))));
+  }
+
   function Archive({ kind, items, busy, error, save, onClose, undoNotice }) {
     const groups = archiveGroups(items, kind);
-    const [activeDay, setActiveDay] = useState(groups[0]?.day || "");
+    const [activeDay, setActiveDay] = useState(groups[0]?.day || dayKey());
     const sections = useRef(new Map());
+    const emptyDay = useRef(null);
     const title = kind === "log" ? "日志箱" : "小纸条";
-    const active = groups.some(group => group.day === activeDay) ? activeDay : groups[0]?.day;
+    const hasActiveDay = groups.some(group => group.day === activeDay);
     function jump(day) {
       setActiveDay(day);
-      sections.current.get(day)?.scrollIntoView({ block: "start", behavior: "auto" });
+      requestAnimationFrame(() => (sections.current.get(day) || emptyDay.current)?.scrollIntoView({ block: "start", behavior: "auto" }));
     }
     return h(Modal, { titleId: "archive-title", className: `archive-dialog ${kind === "log" ? "log-archive" : "paper-archive"}`, onClose },
       h("div", { className: "archive-top" },
@@ -171,12 +243,13 @@
           h("div", null, h("small", null, kind === "log" ? "THE DAYS, COLLECTED" : "LITTLE WORDS, KEPT"),
             h("h2", { id: "archive-title" }, title), h("p", null, `${items.filter(item => item.kind === kind).length} 条记录 · 按日期收好`)),
           h("button", { type: "button", className: "close-button", onClick: onClose, "aria-label": `关闭${title}`, autoFocus: true }, "关闭 ×")),
-        groups.length > 0 && h("nav", { className: "archive-dates", "aria-label": `${title}日期选择` },
-          groups.map(group => h("button", { type: "button", key: group.day, "aria-pressed": active === group.day, onClick: () => jump(group.day) },
-            h("span", null, group.day.slice(0, 4)), h("strong", null, group.day.slice(5).replace("-", " / ")))))),
+        h(ArchiveDates, { groups, activeDay, kind, onSelect: jump })),
       undoNotice,
       error && h("p", { className: "error", role: "alert" }, error),
       h("div", { className: "archive-scroll" },
+        groups.length > 0 && !hasActiveDay && h("section", { className: "archive-day archive-selected-empty", ref: emptyDay, role: "status" },
+          h("div", { className: "archive-day-title" }, h("h3", null, fullDate(activeDay)), h("span", null, "0 条")),
+          h("p", null, "这一天还没有记录。")),
         !groups.length && h("div", { className: "archive-empty" }, h("span", { "aria-hidden": true }, "✧"), h("h3", null, "这里，等着你的第一段记录"),
           h("p", null, kind === "log" ? "流水账提交后，会按日期收进这里。" : "写下的小纸条，会按日期收进这里。")),
         groups.map(group => h("section", { key: group.day, className: "archive-day", ref: node => { if (node) sections.current.set(group.day, node); else sections.current.delete(group.day); } },
