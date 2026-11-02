@@ -2,7 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
-const allowed = new Set(['/tests/preview.html', '/tests/preview-store.js', '/app.js', '/notebook-model.js', '/notebook-ui.js', '/project-editor.js', '/style.css', '/notebook.css', '/favicon.svg']);
+const allowed = new Set(['/tests/preview.html', '/tests/preview-store.js', '/app.js', '/notebook-model.js', '/notebook-ui.js', '/project-editor.js', '/checkin-model.js', '/checkin-ui.js', '/config.js', '/style.css', '/notebook.css', '/favicon.svg']);
 http.createServer((req, res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
   const file = pathname === '/' ? '/tests/preview.html' : pathname;

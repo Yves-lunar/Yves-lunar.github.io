@@ -232,3 +232,31 @@ test('daily logs round-trip through the existing schema without mixing with old 
   assert.equal((await a.store.list()).length, 1);
   assert.equal((await a.store.list())[0].kind, 'diary');
 });
+
+test('check-ins, draws and top-ups reuse the diary schema and never leak into papers, logs or tools', async () => {
+  const remote = new Map();
+  const a = visitor(remote), b = visitor(remote);
+  const paper = await a.store.mutate('POST', {kind:'diary',day:'2026-11-02',body:'原来的小纸条'});
+  const log = await a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'流水账'});
+  const checkin = await a.store.mutate('POST', {kind:'checkin',day:'2026-11-02',body:JSON.stringify({v:1,done:true,text:'她今天很好',score:8})});
+  const draw = await a.store.mutate('POST', {kind:'draw',day:'2026-11-02',body:JSON.stringify({v:1,base:20,lucky:true,multiplier:2,amount:40})});
+  const topup = await a.store.mutate('POST', {kind:'topup',day:'2026-11-02',body:JSON.stringify({v:1,amount:40,platform:'网易'})});
+  for (const [item, title] of [[checkin,'__little_days_checkin_v1__'],[draw,'__little_days_draw_v1__'],[topup,'__little_days_topup_v1__']]) {
+    assert.equal(remote.get(item.id).kind, 'diary', 'Must satisfy the deployed kind CHECK constraint');
+    assert.equal(remote.get(item.id).title, title);
+    assert.equal(remote.get(item.id).day, '2026-11-02');
+  }
+  const rows = await b.store.list();
+  assert.equal(rows.map(row => row.kind).sort().join(','), 'checkin,diary,draw,log,topup');
+  assert.equal(rows.find(row => row.id === paper.id).body, '原来的小纸条');
+  assert.equal(rows.find(row => row.id === log.id).kind, 'log');
+  await b.store.mutate('PATCH', {id:checkin.id, body:JSON.stringify({v:1,done:true,text:'补一句',score:9})});
+  const edited = (await a.store.list()).find(row => row.id === checkin.id);
+  assert.equal(edited.kind, 'checkin');
+  assert.equal(JSON.parse(edited.body).text, '补一句');
+  assert.equal(edited.created, checkin.created);
+  assert.equal(remote.get(checkin.id).title, '__little_days_checkin_v1__', 'Editing keeps the reserved title');
+  assert.equal(remote.size, 5, 'Editing updates the same row');
+  await assert.rejects(a.store.mutate('POST', {kind:'draw',body:'{}'}), {code:'INVALID_INPUT'}, 'A day is required');
+  await assert.rejects(a.store.mutate('POST', {kind:'topup',day:'2026-11-02',body:' '}), {code:'INVALID_INPUT'});
+});

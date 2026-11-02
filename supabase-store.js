@@ -7,6 +7,14 @@
   // title stores this subtype, so existing installations need no SQL migration.
   const logTitle = "__little_days_daily_log_v1__";
   const toolTitle = "__little_days_tools_v1__";
+  // 打卡抽签：每天一条打卡、每天一支签、每笔充值各占一行，同样存成 diary 行。
+  const reservedTitles = Object.freeze({
+    checkin: "__little_days_checkin_v1__",
+    draw: "__little_days_draw_v1__",
+    topup: "__little_days_topup_v1__"
+  });
+  const reservedKinds = Object.keys(reservedTitles);
+  const kindOfTitle = title => reservedKinds.find(kind => reservedTitles[kind] === title) || "";
 
   function settings() {
     const config = window.LITTLE_DAYS_SUPABASE;
@@ -55,6 +63,11 @@
   }
 
   function toItem(row) {
+    const reserved = row.kind === "diary" ? kindOfTitle(row.title) : "";
+    if (reserved) {
+      return { id: row.id, kind: reserved, title: "", body: row.body || "", updated: row.created,
+        completedAt: "", day: row.day || "", done: 0, created: row.created };
+    }
     const isLog = row.kind === "diary" && row.title === logTitle;
     const isTool = row.kind === "diary" && (row.title === toolTitle || (row.title || "").startsWith(toolTitle + ":"));
     const toolName = isTool ? (row.title.slice(toolTitle.length + 1) || (row.body || "").trim().split("\n")[0].slice(0, 40) || "未命名条目") : "";
@@ -114,10 +127,14 @@
 
   async function mutate(method, input) {
     if (method === "POST") {
-      if (!["todo", "note", "diary", "log", "tool"].includes(input.kind)) throw { code: "INVALID_INPUT" };
+      if (!["todo", "note", "diary", "log", "tool", ...reservedKinds].includes(input.kind)) throw { code: "INVALID_INPUT" };
+      // The diary CHECK constraint needs a date and a non-empty body.
+      if (reservedKinds.includes(input.kind) && (!/^\d{4}-\d{2}-\d{2}$/.test(input.day || "") ||
+          typeof input.body !== "string" || !input.body.trim())) throw { code: "INVALID_INPUT" };
       // IDs and creation timestamps come from PostgreSQL defaults.
-      const data = { ...fields(input), kind: ["log", "tool"].includes(input.kind) ? "diary" : input.kind };
+      const data = { ...fields(input), kind: ["log", "tool", ...reservedKinds].includes(input.kind) ? "diary" : input.kind };
       if (input.kind === "log") data.title = logTitle;
+      if (reservedKinds.includes(input.kind)) data.title = reservedTitles[input.kind];
       if (input.kind === "tool" && input.title === undefined) data.title = toolTitle;
       const rows = await request("POST", { select: columns }, data);
       if (rows.length !== 1 || !rows[0].id) throw { code: "INVALID_RESPONSE" };

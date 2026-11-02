@@ -15,7 +15,8 @@
       note: "M12 6c-3-2-6-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1v15",
       diary: "M14 3H5v18h14V8l-5-5v5h5M8 12h8M8 16h5",
       log: "M6 3h14v18H6V3M3 7h5M3 12h5M3 17h5M11 8h5M11 12h5M11 16h3",
-      tool: "M14 6a5 5 0 0 0-6 6l-5 5a2 2 0 0 0 3 3l5-5a5 5 0 0 0 6-6l-3 3-3-3 3-3Z"
+      tool: "M14 6a5 5 0 0 0-6 6l-5 5a2 2 0 0 0 3 3l5-5a5 5 0 0 0 6-6l-3 3-3-3 3-3Z",
+      checkin: "M6 11h12l-1.4 10H7.4L6 11ZM9 11V4.5M12 11V3M15 11V5.5M5 11h14"
     };
     return h("svg", { className: "nav-icon", viewBox: "0 0 24 24", width: 19, height: 19, fill: "none", stroke: "currentColor", strokeWidth: 1.7,
       strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true, focusable: false }, h("path", { d: paths[kind] }));
@@ -396,10 +397,11 @@
     }, []);
     async function save(method, input) {
       const item = items.find(row => row.id === input.id);
+      if (method === "DELETE" && item && ["checkin", "draw"].includes(item.kind)) return false;
       if (method === "DELETE" && item && item.kind !== "todo") {
         if (!pendingDeletes.current.some(row => row.id === item.id)) {
           pendingDeletes.current.push({ id: item.id, until: Date.now() + 10000, deleting: false,
-            label: item.kind === "note" ? `项目「${item.title}」` : item.kind === "log" ? "流水账" : item.kind === "tool" ? "小工具条目" : "小纸条" });
+            label: item.kind === "note" ? `项目「${item.title}」` : item.kind === "log" ? "流水账" : item.kind === "tool" ? "小工具条目" : item.kind === "topup" ? "充值记录" : "小纸条" });
           showDeletions();
         }
         return true;
@@ -418,6 +420,26 @@
         return true;
       } catch (err) { setError(store.errorMessage(err) + (method === "DELETE" ? " 记录已恢复，请重试。" : " 文字已保留，请重试。")); return false; }
       finally { saving.current = false; setBusy(false); }
+    }
+    // Check-in actions read the latest cloud rows first, then write, under the same save lock.
+    async function exclusive(task) {
+      if (!ready || saving.current) return { ok: false, message: "正在保存别的内容，请稍候再试。" };
+      syncRevision.current++;
+      saving.current = true;
+      setBusy(true);
+      try {
+        await task({
+          list: async () => { const data = await store.list(); setItems(data); return data; },
+          mutate: async (method, input) => {
+            const item = await store.mutate(method, input);
+            setItems(previous => method === "POST" ? [...previous, item] : previous.map(row => row.id === item.id ? item : row));
+            return item;
+          }
+        });
+        return { ok: true, message: "" };
+      } catch (err) {
+        return { ok: false, message: err && err.userMessage ? err.userMessage : store.errorMessage(err) + " 内容已保留，请重试。" };
+      } finally { saving.current = false; setBusy(false); }
     }
     async function submitLog(event) {
       event.preventDefault();
@@ -475,11 +497,15 @@
         h("button", { type: "button", disabled: entry.deleting, onClick: () => undoDelete(entry.id) }, "撤回"))));
     const done = todos.filter(item => item.done).length;
     const show = kind => tab === "all" || tab === kind;
+    const today = dayKey(new Date(todoClock));
+    const CheckinPage = window.LITTLE_DAYS_CHECKIN_UI;
+    const CheckinBanner = window.LITTLE_DAYS_CHECKIN_BANNER;
     return h(React.Fragment, null,
       h("header", null,
-        h("a", { href: "./", className: "brand" }, h("b", null, "✳"), "日常 ", h("i", null, "little days")),
+        h("a", { href: "./", className: "brand" }, h("b", null, h("svg", { viewBox: "0 0 24 24", width: 20, height: 20, "aria-hidden": true, focusable: false },
+          h("path", { d: "M15.5 3.2a8.8 8.8 0 1 0 5.3 13.6A7.4 7.4 0 0 1 15.5 3.2Z", fill: "currentColor" }))), "日常 ", h("i", null, "little days")),
         h("nav", { className: "nav", "data-slot": "tabs-list", "aria-label": "记事本分类" },
-          [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"], ["tool", "小工具"]].map(([value, label]) =>
+          [["all", "总览"], ["todo", "待办"], ["note", "记事本"], ["diary", "日记"], ["log", "流水账"], ["checkin", "打卡"], ["tool", "小工具"]].map(([value, label]) =>
             h("button", { key: value, type: "button", "data-slot": "tabs-trigger", "aria-label": label, title: label,
               "aria-pressed": tab === value, onClick: () => { setTab(value); setOpenProject(null); setShowAllProjects(false); } }, h(NavIcon, { kind: value }), h("span", { className: "nav-label" }, label)))),
         h("span", { className: "private" }, "共享记事本 ", h("b", null, "我"))),
@@ -488,11 +514,16 @@
           h("div", null, h("small", null, "A LITTLE SPACE, JUST FOR YOU"), h("h1", null, "把日子，慢慢记下来", h("span", null, "。"))),
           h("div", { className: "today" }, new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }), h("p", null, "留一点时间，给自己"))),
         error && h("p", { className: "error", role: "alert" }, error),
+        tab === "all" && CheckinBanner && h(CheckinBanner, { items: visibleItems, ready, busy, run: exclusive, today,
+          openPage: () => { setTab("checkin"); setOpenProject(null); setShowAllProjects(false); window.scrollTo(0, 0); } }),
         show("log") && h("section", { className: "daily-log", "aria-labelledby": "log-title" },
           h("div", { className: "log-heading" },
             h("div", { className: "log-title-line" }, h("h2", { id: "log-title" }, "流水账"), h("span", null, dayKey().replaceAll("-", " / "))),
             h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen("log"), "aria-label": "全屏书写流水账" }, "⛶ 全屏")),
           logForm(false)),
+        tab === "checkin" && (CheckinPage
+          ? h(CheckinPage, { items: visibleItems, ready, busy, run: exclusive, save, today })
+          : h("p", { className: "error", role: "alert" }, "打卡模块没有加载，请确认 checkin-model.js 和 checkin-ui.js 已一起上传。")),
         tab === "tool" && h("section", { className: "tools-page", "aria-labelledby": "tools-title" },
           h("div", { className: "daily-log" },
             h("div", { className: "log-heading" }, h("h2", { id: "tools-title" }, "小工具"),
@@ -504,7 +535,7 @@
               h("strong", null, item.title || item.body.trim().split("\n")[0].slice(0, 40) || "未命名条目"),
               h("time", { dateTime: entryDay(item) }, entryDay(item)))))),
           !toolEntries.length && h("p", { className: "empty" }, ready ? "还没有条目，在上面写下第一条吧。" : "正在读取…")),
-        !["log", "tool"].includes(tab) && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
+        !["log", "tool", "checkin"].includes(tab) && h("div", { className: `workspace ${tab === "all" ? "" : "single"}` },
           show("todo") && h("section", { className: `panel tasks ${showAllTodos ? "todos-expanded" : ""}`, "aria-labelledby": "tasks-title" },
             h("small", null, "01 / TO-DO"), h("h2", { id: "tasks-title" }, "今日待办 ", h("em", null, todos.length - done)),
             h("p", { className: "subtitle" }, "一件一件，慢慢完成。"),
