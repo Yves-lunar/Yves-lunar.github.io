@@ -86,3 +86,10 @@ test('month cells start on Monday and include every day', () => {
   assert.equal(m.monthCells(2024, 1).filter(Boolean).pop(), '2024-02-29');
   assert.equal(m.shiftDay('2026-01-01', -1), '2025-12-31');
 });
+
+test('half-point scores such as 6.5 are kept; other fractions are dropped', () => {
+  const day = '2026-10-26';
+  assert.equal(m.parseCheckin({id:'a', day, body: JSON.stringify({done:true, score:6.5})}).score, 6.5);
+  assert.equal(m.parseCheckin({id:'b', day, body: JSON.stringify({done:true, score:6.3})}).score, null);
+  assert.equal(m.parseCheckin({id:'c', day, body: JSON.stringify({done:true, score:11})}).score, null);
+});

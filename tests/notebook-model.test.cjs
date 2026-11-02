@@ -58,3 +58,11 @@ test('date keys use local calendar fields without converting to UTC',()=>{
   assert.equal(dayKey(new Date(2026,0,2,0,15)),'2026-01-02');
   assert.equal(dayKey(new Date(2026,8,30)),'2026-09-30');
 });
+
+test('log tags are counted across logs only, most used first', () => {
+  const items = [
+    {id:'1',kind:'log',tags:['求职','散步']}, {id:'2',kind:'log',tags:['求职']}, {id:'3',kind:'log'},
+    {id:'4',kind:'diary',tags:['不该算']}, {id:'5',kind:'log',tags:['看书']}
+  ];
+  assert.deepEqual(require("../notebook-model.js").tagStats(items), [{tag:'求职',count:2},{tag:'看书',count:1},{tag:'散步',count:1}]);
+});

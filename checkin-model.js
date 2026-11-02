@@ -83,7 +83,7 @@
 
   function parseCheckin(item) {
     const data = readJSON(item.body) || {};
-    const score = Number.isInteger(data.score) && data.score >= 0 && data.score <= 10 ? data.score : null;
+    const score = typeof data.score === "number" && Number.isInteger(data.score * 2) && data.score >= 0 && data.score <= 10 ? data.score : null;
     return { id: item.id, day: item.day, created: item.created, raw: data,
       done: data.done === true, text: typeof data.text === "string" ? data.text : "", score };
   }

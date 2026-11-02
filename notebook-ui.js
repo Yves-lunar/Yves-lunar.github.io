@@ -4,6 +4,8 @@
   const { useState, useEffect, useLayoutEffect, useRef } = React;
   const h = React.createElement;
   const { dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, activeTodos } = window.LITTLE_DAYS_MODEL;
+  const tagStats = items => window.LITTLE_DAYS_MODEL.tagStats ? window.LITTLE_DAYS_MODEL.tagStats(items) : [];
+  const sameTags = (a = [], b = []) => a.length === b.length && a.every((tag, index) => tag === b[index]);
   const store = window.LITTLE_DAYS_STORE;
   const fullDate = day => new Date(`${day}T12:00:00`).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
   const time = item => new Date(item.created).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
@@ -37,6 +39,32 @@
     }, [value]);
     return h("textarea", { ref, value, onChange: event => onChange(event.target.value), "aria-label": label,
       placeholder, maxLength: 50000, rows: 1, className, autoFocus, disabled });
+  }
+
+  // 流水账标签：点一下选中/取消；“＋ 标签”可以写新的。
+  function TagPicker({ value, onChange, suggestions, disabled }) {
+    const [adding, setAdding] = useState(false);
+    const [draft, setDraft] = useState("");
+    const inputRef = useRef(null);
+    useLayoutEffect(() => { if (adding && inputRef.current) inputRef.current.focus(); }, [adding]);
+    const options = [...new Set([...suggestions, ...value])];
+    function toggle(tag) { onChange(value.includes(tag) ? value.filter(item => item !== tag) : [...value, tag]); }
+    function finish() {
+      const tag = Array.from(draft.trim()).slice(0, 16).join("");
+      if (tag && !value.includes(tag) && value.length < 12) onChange([...value, tag]);
+      setDraft(""); setAdding(false);
+    }
+    return h("div", { className: "tag-picker", role: "group", "aria-label": "标签（可选）" },
+      options.map(tag => h("button", { type: "button", key: tag, className: "tag-chip", "aria-pressed": value.includes(tag), disabled,
+        onClick: () => toggle(tag) }, tag)),
+      adding
+        ? h("input", { ref: inputRef, className: "tag-chip tag-input", value: draft, maxLength: 16, placeholder: "写个标签", "aria-label": "新标签名称",
+          onChange: event => setDraft(event.target.value), onBlur: finish,
+          onKeyDown: event => {
+            if (event.key === "Enter") { event.preventDefault(); finish(); }
+            else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDraft(""); setAdding(false); }
+          } })
+        : h("button", { type: "button", className: "tag-chip tag-add", disabled: disabled || value.length >= 12, onClick: () => setAdding(true) }, "＋ 标签"));
   }
 
   function Modal({ titleId, className, onClose, children }) {
@@ -131,29 +159,35 @@
           } }, changed ? "保存修改 ✓" : "已保存 ✓"))))));
   }
 
-  function ArchiveEntry({ item, day, editable, busy, save }) {
+  function ArchiveEntry({ item, day, editable, busy, save, suggestions = [] }) {
     const [editing, setEditing] = useState(false);
     const [body, setBody] = useState(item.body);
     const [title, setTitle] = useState(item.title);
+    const [tags, setTags] = useState(item.tags || []);
+    const unchanged = body === item.body && title === item.title && sameTags(tags, item.tags || []);
     async function submit(event) {
       event.preventDefault();
-      if (busy || !body.trim() || (item.kind === "tool" && !title.trim()) || (body === item.body && title === item.title)) return;
-      if (await save("PATCH", { id: item.id, body, ...(item.kind === "tool" ? { kind: "tool", title: title.trim() } : {}) })) setEditing(false);
+      if (busy || !body.trim() || (item.kind === "tool" && !title.trim()) || unchanged) return;
+      if (await save("PATCH", { id: item.id, body, ...(item.kind === "tool" ? { kind: "tool", title: title.trim() } : {}),
+        ...(item.kind === "log" ? { kind: "log", tags } : {}) })) setEditing(false);
     }
     return h("article", { className: "archive-entry" },
       h("div", { className: "heading" }, h("time", { dateTime: item.created }, time(item)),
         !editing && h("div", { className: "archive-entry-actions" },
           editable && h("button", { type: "button", disabled: busy,
-            onClick: () => { setBody(item.body); setTitle(item.title); setEditing(true); } }, "编辑"),
+            onClick: () => { setBody(item.body); setTitle(item.title); setTags(item.tags || []); setEditing(true); } }, "编辑"),
           h("button", { type: "button", disabled: busy, "aria-label": `删除 ${day} ${time(item)} 的记录`,
             onClick: () => save("DELETE", { id: item.id }) }, "删除"))),
       editing ? h("form", { className: "archive-edit-form", onSubmit: submit },
         item.kind === "tool" && h("input", { className: "tool-title-input", "aria-label": "编辑小工具标题", value: title, maxLength: 200, disabled: busy, onChange: e => setTitle(e.target.value) }),
         h(AutoText, { label: `编辑 ${day} ${time(item)} 的${item.kind === "tool" ? "小工具" : "日志"}`, value: body, onChange: setBody, autoFocus: true, disabled: busy }),
+        item.kind === "log" && h(TagPicker, { value: tags, onChange: setTags, suggestions, disabled: busy }),
         h("div", { className: "archive-edit-actions" },
-          h("button", { type: "button", disabled: busy, onClick: () => { setBody(item.body); setEditing(false); } }, "取消"),
-          h("button", { type: "submit", className: "archive-save", disabled: busy || !body.trim() || (item.kind === "tool" && !title.trim()) || (body === item.body && title === item.title) }, busy ? "正在保存…" : "保存修改")))
-        : h("p", null, item.body));
+          h("button", { type: "button", disabled: busy, onClick: () => { setBody(item.body); setTags(item.tags || []); setEditing(false); } }, "取消"),
+          h("button", { type: "submit", className: "archive-save", disabled: busy || !body.trim() || (item.kind === "tool" && !title.trim()) || unchanged }, busy ? "正在保存…" : "保存修改")))
+        : h(React.Fragment, null,
+          item.tags && item.tags.length > 0 && h("ul", { className: "tag-list", "aria-label": "标签" }, item.tags.map(tag => h("li", { key: tag }, tag))),
+          h("p", null, item.body)));
   }
 
   function ArchiveDates({ groups, activeDay, kind, onSelect }) {
@@ -228,7 +262,12 @@
   }
 
   function Archive({ kind, items, busy, error, save, onClose, undoNotice }) {
-    const groups = archiveGroups(items, kind);
+    const tagList = kind === "log" ? tagStats(items) : [];
+    const [tagFilter, setTagFilter] = useState("");
+    const activeTag = tagList.some(row => row.tag === tagFilter) ? tagFilter : "";
+    const shown = activeTag ? items.filter(item => item.kind !== kind || (item.tags || []).includes(activeTag)) : items;
+    const groups = archiveGroups(shown, kind);
+    const total = items.filter(item => item.kind === kind).length;
     const [activeDay, setActiveDay] = useState(groups[0]?.day || dayKey());
     const sections = useRef(new Map());
     const emptyDay = useRef(null);
@@ -238,12 +277,23 @@
       setActiveDay(day);
       requestAnimationFrame(() => (sections.current.get(day) || emptyDay.current)?.scrollIntoView({ block: "start", behavior: "auto" }));
     }
+    function pickTag(tag) {
+      const next = archiveGroups(tag ? items.filter(item => item.kind !== kind || (item.tags || []).includes(tag)) : items, kind);
+      setTagFilter(tag);
+      if (next[0]) jump(next[0].day);
+    }
     return h(Modal, { titleId: "archive-title", className: `archive-dialog ${kind === "log" ? "log-archive" : "paper-archive"}`, onClose },
       h("div", { className: "archive-top" },
         h("div", { className: "archive-heading" },
           h("div", null, h("small", null, kind === "log" ? "THE DAYS, COLLECTED" : "LITTLE WORDS, KEPT"),
-            h("h2", { id: "archive-title" }, title), h("p", null, `${items.filter(item => item.kind === kind).length} 条记录 · 按日期收好`)),
+            h("h2", { id: "archive-title" }, title), h("p", null, activeTag
+              ? `标签「${activeTag}」${shown.filter(item => item.kind === kind).length} 条 · 共 ${total} 条`
+              : `${total} 条记录 · 按日期收好`)),
           h("button", { type: "button", className: "close-button", onClick: onClose, "aria-label": `关闭${title}`, autoFocus: true }, "关闭 ×")),
+        tagList.length > 0 && h("div", { className: "tag-filter", role: "group", "aria-label": "按标签选看" },
+          h("button", { type: "button", className: "tag-chip", "aria-pressed": !activeTag, onClick: () => pickTag("") }, "全部"),
+          tagList.map(({ tag, count }) => h("button", { type: "button", key: tag, className: "tag-chip", "aria-pressed": activeTag === tag,
+            "aria-label": `只看标签「${tag}」，${count} 条`, onClick: () => pickTag(activeTag === tag ? "" : tag) }, tag, h("span", { "aria-hidden": true }, count)))),
         h(ArchiveDates, { groups, activeDay, kind, onSelect: jump })),
       undoNotice,
       error && h("p", { className: "error", role: "alert" }, error),
@@ -255,7 +305,8 @@
           h("p", null, kind === "log" ? "流水账提交后，会按日期收进这里。" : "写下的小纸条，会按日期收进这里。")),
         groups.map(group => h("section", { key: group.day, className: "archive-day", ref: node => { if (node) sections.current.set(group.day, node); else sections.current.delete(group.day); } },
           h("div", { className: "archive-day-title" }, h("h3", null, fullDate(group.day)), h("span", null, `${group.entries.length} 条`)),
-          group.entries.map(item => h(ArchiveEntry, { key: item.id, item, day: group.day, editable: kind === "log", busy, save }))))));
+          group.entries.map(item => h(ArchiveEntry, { key: item.id, item, day: group.day, editable: kind === "log", busy, save,
+            suggestions: tagList.map(row => row.tag) }))))));
   }
 
   function Notebook() {
@@ -270,6 +321,7 @@
     const [day, setDay] = useState(() => dayKey());
     const [log, setLog] = useState("");
     const [logStatus, setLogStatus] = useState("");
+    const [logTags, setLogTags] = useState([]);
     const [toolText, setToolText] = useState("");
     const [toolName, setToolName] = useState("");
     const [toolStatus, setToolStatus] = useState("");
@@ -443,9 +495,10 @@
     }
     async function submitLog(event) {
       event.preventDefault();
-      const submitted = log;
-      if (submitted.trim() && await save("POST", { kind: "log", day: dayKey(), body: submitted.trim() })) {
+      const submitted = log, chosen = logTags;
+      if (submitted.trim() && await save("POST", { kind: "log", day: dayKey(), body: submitted.trim(), tags: chosen })) {
         setLog(current => current === submitted ? "" : current);
+        setLogTags(current => sameTags(current, chosen) ? [] : current);
         setLogStatus("已收进日志箱");
       }
     }
@@ -454,6 +507,8 @@
       return h("form", { className: immersive ? "immersive-form" : "log-form", onSubmit: submitLog },
         h(AutoText, { label: immersive ? "全屏流水账" : "流水账内容", value: log, onChange: changeLog,
           autoFocus: immersive, placeholder: immersive ? "慢慢写，今天发生的事都可以留在这里…" : "今天做了什么？随手记两笔…" }),
+        h(TagPicker, { value: logTags, onChange: tags => { setLogTags(tags); setLogStatus(""); }, disabled: busy,
+          suggestions: tagStats(items).slice(0, 12).map(row => row.tag) }),
         h("div", { className: "log-form-bottom" },
           h("span", { className: "log-feedback", role: "status" }, logStatus || `${Array.from(log).length} 字 · 提交后收进日志箱`),
           h("button", { type: "submit", disabled: !ready || busy || !log.trim() }, busy ? "正在保存…" : "收进日志箱 ↗")));

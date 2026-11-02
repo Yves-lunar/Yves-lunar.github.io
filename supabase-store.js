@@ -15,6 +15,27 @@
   });
   const reservedKinds = Object.keys(reservedTitles);
   const kindOfTitle = title => reservedKinds.find(kind => reservedTitles[kind] === title) || "";
+  // 流水账标签存在标题后缀里：__little_days_daily_log_v1__:["工作","散步"]；无标签时标题保持原样。
+  const TAG_LIMIT = 12, TAG_LENGTH = 16;
+  function readTags(title) {
+    if (!title.startsWith(logTitle + ":")) return [];
+    try {
+      const tags = JSON.parse(title.slice(logTitle.length + 1));
+      return Array.isArray(tags) ? [...new Set(tags.filter(tag => typeof tag === "string" && tag.trim()).map(tag => tag.trim()))] : [];
+    } catch { return []; }
+  }
+  function logTitleFor(tags) {
+    if (!Array.isArray(tags)) throw { code: "INVALID_INPUT" };
+    const clean = [];
+    for (const tag of tags) {
+      if (typeof tag !== "string" || !tag.trim() || Array.from(tag.trim()).length > TAG_LENGTH) throw { code: "INVALID_INPUT" };
+      if (!clean.includes(tag.trim())) clean.push(tag.trim());
+    }
+    if (clean.length > TAG_LIMIT) throw { code: "INVALID_INPUT" };
+    const title = clean.length ? `${logTitle}:${JSON.stringify(clean)}` : logTitle;
+    if (title.length > 300) throw { code: "INVALID_INPUT" };
+    return title;
+  }
 
   function settings() {
     const config = window.LITTLE_DAYS_SUPABASE;
@@ -68,7 +89,7 @@
       return { id: row.id, kind: reserved, title: "", body: row.body || "", updated: row.created,
         completedAt: "", day: row.day || "", done: 0, created: row.created };
     }
-    const isLog = row.kind === "diary" && row.title === logTitle;
+    const isLog = row.kind === "diary" && (row.title === logTitle || (row.title || "").startsWith(logTitle + ":"));
     const isTool = row.kind === "diary" && (row.title === toolTitle || (row.title || "").startsWith(toolTitle + ":"));
     const toolName = isTool ? (row.title.slice(toolTitle.length + 1) || (row.body || "").trim().split("\n")[0].slice(0, 40) || "未命名条目") : "";
     const project = row.kind === "note" && /^<!--little-days-project-updated:(\d{4}-\d{2}-\d{2}T[\d:.]+Z)-->\n/.exec(row.body || "");
@@ -76,7 +97,8 @@
       id: row.id, kind: isTool ? "tool" : isLog ? "log" : row.kind, title: isTool ? toolName : isLog ? "" : row.title || "", body: project ? row.body.slice(project[0].length) : row.body || "",
       updated: project ? project[1] : row.created,
       completedAt: row.kind === "todo" && row.done && (row.body || "").startsWith("__todo_completed__:") ? row.body.slice(19) : "",
-      day: row.day || "", done: row.done ? 1 : 0, created: row.created
+      day: row.day || "", done: row.done ? 1 : 0, created: row.created,
+      ...(isLog ? { tags: readTags(row.title) } : {})
     };
   }
 
@@ -113,6 +135,7 @@
     }
     if (input.done !== undefined) result.done = !!input.done;
     if (input.kind === "todo" && input.done !== undefined) result.body = input.done ? "__todo_completed__:" + new Date().toISOString() : "";
+    if (input.kind === "log" && input.tags !== undefined) result.title = logTitleFor(input.tags);
     if (input.kind === "tool" && input.title !== undefined) {
       if (!input.title.trim() || input.title.trim().length > 200) throw { code: "INVALID_INPUT" };
       result.title = toolTitle + ":" + input.title.trim();
@@ -133,7 +156,7 @@
           typeof input.body !== "string" || !input.body.trim())) throw { code: "INVALID_INPUT" };
       // IDs and creation timestamps come from PostgreSQL defaults.
       const data = { ...fields(input), kind: ["log", "tool", ...reservedKinds].includes(input.kind) ? "diary" : input.kind };
-      if (input.kind === "log") data.title = logTitle;
+      if (input.kind === "log") data.title = logTitleFor(input.tags || []);
       if (reservedKinds.includes(input.kind)) data.title = reservedTitles[input.kind];
       if (input.kind === "tool" && input.title === undefined) data.title = toolTitle;
       const rows = await request("POST", { select: columns }, data);

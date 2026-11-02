@@ -260,3 +260,30 @@ test('check-ins, draws and top-ups reuse the diary schema and never leak into pa
   await assert.rejects(a.store.mutate('POST', {kind:'draw',body:'{}'}), {code:'INVALID_INPUT'}, 'A day is required');
   await assert.rejects(a.store.mutate('POST', {kind:'topup',day:'2026-11-02',body:' '}), {code:'INVALID_INPUT'});
 });
+
+test('daily-log tags live in the title suffix; untagged logs keep the exact original title', async () => {
+  const remote = new Map();
+  const a = visitor(remote), b = visitor(remote);
+  const plain = await a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'没有标签'});
+  assert.equal(remote.get(plain.id).title, '__little_days_daily_log_v1__');
+  assert.equal(plain.tags.length, 0);
+  const tagged = await a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'有标签',tags:[' 求职 ','散步','求职']});
+  assert.equal(remote.get(tagged.id).title, '__little_days_daily_log_v1__:["求职","散步"]');
+  assert.equal(remote.get(tagged.id).kind, 'diary');
+  const loaded = await b.store.list();
+  assert.equal(loaded.filter(row => row.kind === 'log').length, 2);
+  assert.equal(loaded.find(row => row.id === tagged.id).tags.join(','), '求职,散步');
+  assert.equal(loaded.find(row => row.id === tagged.id).body, '有标签');
+  await b.store.mutate('PATCH', {id:plain.id, kind:'log', body:'补了标签', tags:['工作']});
+  const edited = (await a.store.list()).find(row => row.id === plain.id);
+  assert.equal(edited.kind, 'log'); assert.equal(edited.tags.join(','), '工作'); assert.equal(edited.created, plain.created);
+  await b.store.mutate('PATCH', {id:plain.id, kind:'log', body:'去掉标签', tags:[]});
+  assert.equal(remote.get(plain.id).title, '__little_days_daily_log_v1__');
+  await b.store.mutate('PATCH', {id:tagged.id, body:'只改正文'});
+  assert.equal((await a.store.list()).find(row => row.id === tagged.id).tags.join(','), '求职,散步', 'Editing text alone keeps tags');
+  remote.set('bad', {id:'bad', kind:'diary', title:'__little_days_daily_log_v1__:not json', body:'坏标题', day:'2026-11-01', done:false, created:new Date().toISOString()});
+  const bad = (await a.store.list()).find(row => row.id === 'bad');
+  assert.equal(bad.kind, 'log'); assert.equal(bad.tags.length, 0);
+  await assert.rejects(a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'x',tags:['这是一个特别特别特别特别长的标签名字']}), {code:'INVALID_INPUT'});
+  await assert.rejects(a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'x',tags:Array.from({length:13},(_,i)=>`t${i}`)}), {code:'INVALID_INPUT'});
+});

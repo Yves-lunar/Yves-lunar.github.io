@@ -50,7 +50,13 @@
   function activeTodos(items, now = Date.now()) {
     return newest(items.filter(item => item.kind === "todo" && (!item.done || !Number.isFinite(Date.parse(item.completedAt)) || now - Date.parse(item.completedAt) < 48 * 60 * 60 * 1000)));
   }
-  const model = Object.freeze({ dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, formatSelection, activeTodos });
+  // 流水账标签：按使用次数从多到少，次数相同按名称。
+  function tagStats(items) {
+    const counts = new Map();
+    for (const item of items) if (item.kind === "log") for (const tag of item.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+    return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, "zh-CN"));
+  }
+  const model = Object.freeze({ dayKey, entryDay, recentDiaries, archiveGroups, recentProjects, formatSelection, activeTodos, tagStats });
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.LITTLE_DAYS_MODEL = model;
 })(typeof window === "undefined" ? globalThis : window);
