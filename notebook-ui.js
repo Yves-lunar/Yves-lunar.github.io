@@ -409,6 +409,22 @@
     }, []);
     const syncRevision = useRef(0);
     const [refreshing, setRefreshing] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    async function exportBackup() {
+      if (exporting) return;
+      setExporting(true);
+      try {
+        const rows = await (store.exportRows ? store.exportRows() : store.list());
+        const file = new Blob([JSON.stringify({ app: "little-days", exportedAt: new Date().toISOString(), count: rows.length, rows }, null, 2)],
+          { type: "application/json" });
+        const url = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = url; link.download = `little-days-backup-${dayKey()}.json`;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch (err) { setError(store.errorMessage(err) + " 备份没有导出，请重试。"); }
+      finally { setExporting(false); }
+    }
     useEffect(() => {
       let active = true, loading = false, retry = false;
       async function refresh() {
@@ -651,7 +667,10 @@
             h("button", { type: "button", className: "archive-launch paper-launch", onClick: () => setArchive("diary") },
               h("span", { className: "archive-icon", "aria-hidden": true }, "▱"), h("span", null, h("strong", null, "小纸条"), h("small", null, `${diaries.length} 段心情`)), h("span", { "aria-hidden": true }, "↗")))),
         h("footer", null, h("i", null, "little days / 日常"), h("span", null, "平凡的一天，也值得被记录。"),
-          h("span", { role: "status" }, busy ? "正在保存…" : refreshing ? "正在同步最新内容…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…"))),
+          h("div", { className: "footer-tools" },
+            h("button", { type: "button", className: "export-button", disabled: !ready || exporting, onClick: exportBackup,
+              title: "把全部记录下载成一个 JSON 文件" }, exporting ? "正在导出…" : "导出备份"),
+            h("span", { role: "status" }, busy ? "正在保存…" : refreshing ? "正在同步最新内容…" : error ? "同步失败" : ready ? "内容已同步" : "连接云端…")))),
       !archive && !fullscreen && !selectedTool && undoNotice,
       selectedTool && h(Modal, { titleId: "tool-reader-title", className: "archive-dialog tool-reader", onClose: () => setSelectedTool(null) },
         h("div", { className: "archive-top" }, h("div", { className: "archive-heading" },

@@ -34,6 +34,7 @@
       entries = entries.map(item => item.id === input.id ? { ...item, ...input, ...(input.kind === "todo" && input.done !== undefined ? {completedAt:input.done ? new Date().toISOString() : ""} : {}), ...(input.kind === "note" ? {updated:new Date().toISOString()} : {}) } : item);
       return entries.find(item => item.id === input.id);
     },
+    async exportRows() { return entries.map(item => ({ ...item })); },
     errorMessage() { return "模拟保存失败。"; }
   };
 })();

@@ -287,3 +287,17 @@ test('daily-log tags live in the title suffix; untagged logs keep the exact orig
   await assert.rejects(a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'x',tags:['这是一个特别特别特别特别长的标签名字']}), {code:'INVALID_INPUT'});
   await assert.rejects(a.store.mutate('POST', {kind:'log',day:'2026-11-02',body:'x',tags:Array.from({length:13},(_,i)=>`t${i}`)}), {code:'INVALID_INPUT'});
 });
+
+test('backup export returns every raw row, including reserved titles, oldest first', async () => {
+  const remote = new Map();
+  const a = visitor(remote);
+  await a.store.mutate('POST', {kind:'diary',day:'2026-11-01',body:'小纸条'});
+  await a.store.mutate('POST', {kind:'log',day:'2026-11-01',body:'流水账',tags:['求职']});
+  await a.store.mutate('POST', {kind:'checkin',day:'2026-11-01',body:'{"v":1,"done":true}'});
+  const rows = await a.store.exportRows();
+  assert.equal(rows.length, 3);
+  assert.equal(rows.map(row => row.kind).join(','), 'diary,diary,diary', 'Raw rows keep the database kind');
+  assert.ok(rows.some(row => row.title === '__little_days_daily_log_v1__:["求职"]'));
+  assert.ok(rows.some(row => row.title === '__little_days_checkin_v1__'));
+  assert.equal((await a.store.list()).length, 3);
+});

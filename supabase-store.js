@@ -102,7 +102,7 @@
     };
   }
 
-  async function list() {
+  async function rawRows() {
     const rows = [];
     let cursor;
     for (;;) {
@@ -116,8 +116,16 @@
       cursor = next;
       // Continue until an empty page, even if the gateway caps pages below 100.
     }
-    return rows.map(toItem).sort((a, b) =>
-      (Date.parse(a.created) - Date.parse(b.created)) || a.id.localeCompare(b.id));
+    return rows.sort((a, b) => (Date.parse(a.created) - Date.parse(b.created)) || a.id.localeCompare(b.id));
+  }
+
+  async function list() {
+    return (await rawRows()).map(toItem);
+  }
+
+  // 备份：原样导出表里的每一行（含保留标题），恢复时不丢信息。
+  async function exportRows() {
+    return rawRows();
   }
 
   function fields(input) {
@@ -195,5 +203,5 @@
     return "连接云端失败，请检查网络及云端配置后重试。";
   }
 
-  window.LITTLE_DAYS_STORE = Object.freeze({ list, mutate, errorMessage });
+  window.LITTLE_DAYS_STORE = Object.freeze({ list, mutate, errorMessage, exportRows });
 })();
