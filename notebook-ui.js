@@ -572,6 +572,7 @@
     const today = dayKey(new Date(todoClock));
     const CheckinPage = window.LITTLE_DAYS_CHECKIN_UI;
     const CheckinBanner = window.LITTLE_DAYS_CHECKIN_BANNER;
+    const checkinToday = CheckinPage && CheckinPage.today ? CheckinPage.today(new Date(todoClock)) : today;
     return h(React.Fragment, null,
       h("header", null,
         h("a", { href: "./", className: "brand" }, h("b", null, h("svg", { viewBox: "0 0 24 24", width: 20, height: 20, "aria-hidden": true, focusable: false },
@@ -586,7 +587,7 @@
           h("div", null, h("small", null, "A LITTLE SPACE, JUST FOR YOU"), h("h1", null, "把日子，慢慢记下来", h("span", null, "。"))),
           h("div", { className: "today" }, new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }), h("p", null, "留一点时间，给自己"))),
         error && h("p", { className: "error", role: "alert" }, error),
-        tab === "all" && CheckinBanner && h(CheckinBanner, { items: visibleItems, ready, busy, run: exclusive, today,
+        tab === "all" && CheckinBanner && h(CheckinBanner, { items: visibleItems, ready, busy, run: exclusive, today: checkinToday,
           openPage: () => { setTab("checkin"); setOpenProject(null); setShowAllProjects(false); window.scrollTo(0, 0); } }),
         show("log") && h("section", { className: "daily-log", "aria-labelledby": "log-title" },
           h("div", { className: "log-heading" },
@@ -594,7 +595,7 @@
             h("button", { type: "button", className: "expand-writer", onClick: () => setFullscreen("log"), "aria-label": "全屏书写流水账" }, "⛶ 全屏")),
           logForm(false)),
         tab === "checkin" && (CheckinPage
-          ? h(CheckinPage, { items: visibleItems, ready, busy, run: exclusive, save, today })
+          ? h(CheckinPage, { items: visibleItems, ready, busy, run: exclusive, save, today: checkinToday })
           : h("p", { className: "error", role: "alert" }, "打卡模块没有加载，请确认 checkin-model.js 和 checkin-ui.js 已一起上传。")),
         tab === "tool" && h("section", { className: "tools-page", "aria-labelledby": "tools-title" },
           h("div", { className: "daily-log" },

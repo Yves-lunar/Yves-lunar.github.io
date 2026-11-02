@@ -8,6 +8,10 @@
   const PREFIX = "她今天";
   let cachedConfig = null;
   const getConfig = () => cachedConfig || (cachedConfig = M.normalizeConfig(window.LITTLE_DAYS_CHECKIN));
+  const currentDay = () => M.checkinDay(getConfig());
+  // 换日时间之前（比如凌晨 0–4 点）给一句提示，说明还算前一天。
+  const lateNote = (config, today) => config.dayStartsAt > 0 && today !== M.dayKey()
+    ? `${config.dayStartsAt} 点前仍算这一天` : "";
 
   const fmt = value => Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   const weekday = day => "日一二三四五六"[new Date(`${day}T12:00:00`).getDay()];
@@ -46,7 +50,7 @@
       if (busy || form.done === null || !changed) return;
       const snapshot = { ...form, text: sentence(form.text) };
       const result = await run(async ({ list, mutate }) => {
-        const day = M.dayKey();
+        const day = currentDay();
         if (day !== today) throw userError("已经过了零点，页面换到了新的一天，请重新填写。");
         const fresh = M.collect(await list());
         const current = fresh.checkins.get(day);
@@ -66,7 +70,8 @@
       : saved ? (saved.done ? "今天已打卡，当天都可以修改" : "已记下今天没做，当天都可以修改") : "今天还没打卡");
     return h("form", { className: `checkin-card today-card${compact ? " is-compact" : ""}`, onSubmit: submit,
         ...(compact ? { "aria-label": "今天的打卡" } : { "aria-labelledby": "today-card-title" }) },
-      !compact && h("div", { className: "card-head" }, h("h3", { id: "today-card-title" }, "今天"), h("span", null, longDate(today))),
+      !compact && h("div", { className: "card-head" }, h("h3", { id: "today-card-title" }, "今天"),
+        h("span", null, longDate(today), lateNote(config, today) && h("small", { className: "late-note" }, lateNote(config, today)))),
       h("fieldset", { className: "field" },
         h("legend", null, config.label),
         h("div", { className: "segmented two" }, [[true, "做了"], [false, "没做"]].map(([value, label]) =>
@@ -135,7 +140,7 @@
       setProblem(""); setNote(""); setPhase("shaking");
       if (onStart) onStart();
       const response = await run(async ({ list, mutate }) => {
-        const day = M.dayKey();
+        const day = currentDay();
         if (day !== today) throw userError("已经过了零点，请先给新的一天打卡。");
         const fresh = M.collect(await list());
         const existing = fresh.draws.get(day);
@@ -208,7 +213,7 @@
       const response = await run(async ({ list, mutate }) => {
         const fresh = M.summarize(M.collect(await list()), config);
         if (value > fresh.pending) throw userError(`待充只有 ${fmt(fresh.pending)} ${config.unit}，请改小金额。`);
-        await mutate("POST", { kind: "topup", day: M.dayKey(),
+        await mutate("POST", { kind: "topup", day: currentDay(),
           body: JSON.stringify({ v: 1, amount: value, platform: chosen, at: new Date().toISOString() }) });
       });
       if (response.ok) { setOpen(false); setStatus(`已记下：充到${chosen} ${fmt(value)} ${config.unit}`); }
@@ -368,6 +373,7 @@
         h("div", { className: "banner-title" },
           h("h2", { id: "banner-title" }, "今日打卡"),
           h("span", null, longDate(today)),
+          lateNote(config, today) && h("span", { className: "late-note" }, lateNote(config, today)),
           ready && h("span", { className: "banner-meta" }, `连续 ${summary.streak} 天`, h("i", { "aria-hidden": true }, "/"), `待充 ${fmt(summary.pending)} ${config.unit}`)),
         h("div", { className: "banner-tools" },
           ready && h(WeekStrip, { state, today, unit: config.unit }),
@@ -386,6 +392,7 @@
           drawOpen && h(DrawCard, { ...shared, compact: true, onStart: () => setFresh(true) })));
   }
 
+  CheckinPage.today = now => M.checkinDay(getConfig(), now);
   window.LITTLE_DAYS_CHECKIN_UI = CheckinPage;
   window.LITTLE_DAYS_CHECKIN_BANNER = CheckinBanner;
 })();

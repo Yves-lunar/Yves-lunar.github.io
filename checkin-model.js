@@ -11,7 +11,8 @@
     luckyChance: 40,
     luckyMultiplier: 2,
     platforms: ["网易", "苹果"],
-    unit: "元"
+    unit: "元",
+    dayStartsAt: 0
   });
   const TEXT_LIMIT = 200;
 
@@ -47,8 +48,14 @@
       luckyMultiplier,
       platforms: platforms.length ? platforms : [...DEFAULTS.platforms],
       unit: typeof input.unit === "string" && input.unit.trim() ? input.unit.trim() : DEFAULTS.unit,
+      dayStartsAt: Number.isInteger(input.dayStartsAt) && input.dayStartsAt >= 0 && input.dayStartsAt <= 12 ? input.dayStartsAt : DEFAULTS.dayStartsAt,
       expected: money(base * (1 + luckyChance / 100 * (luckyMultiplier - 1)))
     });
+  }
+
+  // 打卡的“今天”：凌晨 dayStartsAt 点之前仍算前一天（像游戏的每日重置）。
+  function checkinDay(config, now = new Date()) {
+    return dayKey(new Date(now.getTime() - (config.dayStartsAt || 0) * 3600000));
   }
 
   function secureRandom() {
@@ -162,7 +169,7 @@
       ...Array.from({ length: count }, (_, index) => dayKey(new Date(year, month, index + 1, 12)))];
   }
 
-  const model = Object.freeze({ DEFAULTS, TEXT_LIMIT, dayKey, shiftDay, money, normalizeConfig, drawPrize, secureRandom,
+  const model = Object.freeze({ DEFAULTS, TEXT_LIMIT, dayKey, shiftDay, checkinDay, money, normalizeConfig, drawPrize, secureRandom,
     parseCheckin, parseDraw, parseTopup, collect, streak, summarize, monthCells });
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.LITTLE_DAYS_CHECKIN_MODEL = model;

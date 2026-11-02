@@ -19,5 +19,6 @@ window.LITTLE_DAYS_CHECKIN = Object.freeze({
   luckyChance: 40,                 // 幸运暴击概率（%），与额度分开独立判定
   luckyMultiplier: 2,              // 暴击倍数
   platforms: ["网易", "苹果"],     // 「本周已充」可选的平台
-  unit: "元"
+  unit: "元",
+  dayStartsAt: 4                   // 凌晨几点换日：4 表示 0–4 点打卡仍算前一天（0 = 零点换日）
 });

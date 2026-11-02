@@ -93,3 +93,13 @@ test('half-point scores such as 6.5 are kept; other fractions are dropped', () =
   assert.equal(m.parseCheckin({id:'b', day, body: JSON.stringify({done:true, score:6.3})}).score, null);
   assert.equal(m.parseCheckin({id:'c', day, body: JSON.stringify({done:true, score:11})}).score, null);
 });
+
+test('check-in day rolls over at the configured hour, not at midnight', () => {
+  const late = m.normalizeConfig({ dayStartsAt: 4 });
+  assert.equal(m.checkinDay(late, new Date(2026, 10, 3, 0, 40)), '2026-11-02', '00:40 still counts as the previous day');
+  assert.equal(m.checkinDay(late, new Date(2026, 10, 3, 3, 59)), '2026-11-02');
+  assert.equal(m.checkinDay(late, new Date(2026, 10, 3, 4, 0)), '2026-11-03');
+  assert.equal(m.checkinDay(late, new Date(2026, 0, 1, 1, 0)), '2025-12-31', 'Works across a year boundary');
+  assert.equal(m.checkinDay(m.normalizeConfig({}), new Date(2026, 10, 3, 0, 40)), '2026-11-03', 'Default stays at midnight');
+  assert.equal(m.normalizeConfig({ dayStartsAt: 30 }).dayStartsAt, 0, 'Out-of-range values fall back');
+});

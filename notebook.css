@@ -585,6 +585,8 @@ footer [role="status"] { font-variant-numeric: tabular-nums; }
 .banner-title > span { color: var(--ink-3); font-size: 13px; }
 .banner-title > .banner-meta { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .banner-meta i { margin: 0 8px; color: var(--line-strong); font-style: normal; }
+.late-note { color: var(--accent-text); font-size: 12px; letter-spacing: 0; }
+.card-head .late-note { margin-left: 8px; }
 .banner-tools { display: flex; align-items: center; gap: 20px; }
 .banner-link { padding: 6px 0; border: 0; background: transparent; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
 .banner-link:hover { color: var(--ink); }
