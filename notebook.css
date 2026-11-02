@@ -271,7 +271,9 @@ main { width: 100%; max-width: 1600px; margin: auto; padding: 40px 4.5% 0; }
 :is(.tag-picker, .tag-filter) .tag-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--sky-line); background: var(--surface); color: var(--ink-2); font-size: 12px; line-height: 1.4; white-space: nowrap; }
 :is(.tag-picker, .tag-filter) .tag-chip:not([aria-pressed="true"]):hover:enabled { border-color: var(--sky-strong); color: var(--ink); }
 :is(.tag-picker, .tag-filter) .tag-chip[aria-pressed="true"] { background: var(--sky-strong); border-color: var(--sky-strong); color: var(--on-strong); font-weight: 500; }
-.tag-picker .tag-add { border-style: dashed; background: transparent; color: var(--sky-deep); }
+.tag-picker-label { margin-right: 2px; color: var(--ink-3); font-size: 12px; }
+.tag-picker .tag-add { border-color: var(--sky-strong); background: var(--sky-soft); color: var(--sky-deep); font-weight: 500; }
+.tag-picker .tag-add:hover:enabled { background: var(--sky-strong); color: var(--on-strong); }
 .tag-picker .tag-input { width: 8.5em; border-color: var(--sky-deep); color: var(--ink); }
 .tag-picker .tag-input:focus { box-shadow: none; }
 .tag-picker .tag-input:focus-visible { outline: none; }

@@ -55,6 +55,7 @@
       setDraft(""); setAdding(false);
     }
     return h("div", { className: "tag-picker", role: "group", "aria-label": "标签（可选）" },
+      h("span", { className: "tag-picker-label", "aria-hidden": true }, "标签"),
       options.map(tag => h("button", { type: "button", key: tag, className: "tag-chip", "aria-pressed": value.includes(tag), disabled,
         onClick: () => toggle(tag) }, tag)),
       adding
@@ -64,7 +65,7 @@
             if (event.key === "Enter") { event.preventDefault(); finish(); }
             else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDraft(""); setAdding(false); }
           } })
-        : h("button", { type: "button", className: "tag-chip tag-add", disabled: disabled || value.length >= 12, onClick: () => setAdding(true) }, "＋ 标签"));
+        : h("button", { type: "button", className: "tag-chip tag-add", "aria-label": "添加新标签", disabled: disabled || value.length >= 12, onClick: () => setAdding(true) }, "＋ 添加"));
   }
 
   function Modal({ titleId, className, onClose, children }) {
